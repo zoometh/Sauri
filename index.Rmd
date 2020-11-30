@@ -1,0 +1,77 @@
+---
+title: "Sauri"
+author: "team"
+# date: "11/12/2020"
+header-includes:
+  # - \usepackage{float}
+  # - \floatplacement{figure}{H}  #make every figure with capti
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, fig.width = 10, fig.height = 10)
+# opts_chunk$set(fig.width=12, fig.height=8)
+library(htmlwidgets)
+library(kableExtra)
+library(dplyr)
+library(knitr)
+library(magick)
+library(leaflet)
+library(RPostgreSQL)
+library(rpostgis)
+library(rdrop2)
+library(sp)
+library(sf)
+library(plotly)
+```
+
+Sauri (Sort, Catalunya) is an important concentration of Medieval engravings
+
+# The rock-art site {#ra}
+
+The site is divided into [5 zones](#SZ)
+
+```{r df.map}
+roches <- st_read(dsn = "D:/Sites_10/Sauri/GIS/roches_pts", layer = "roches_all")
+# roches <- st_crs(roches, 2531)
+roches <- st_transform(roches, 4236) # rdev.reproj
+leaflet(roches, height = "500px") %>%
+  addWMSTiles(
+    # "http://geoserveis.icgc.cat/icc_ortohistorica/wms/service?",
+    "http://www.ign.es/wms-inspire/pnoa-ma?",
+    layers = "OI.OrthoimageCoverage",
+    options = WMSTileOptions(format = "image/png", transparent = TRUE),
+    attribution = "") %>% 
+  # addTiles() %>%  # Add default OpenStreetMap map tiles
+  # all rocks
+  addCircleMarkers(popup="engraved<br>rock",radius = 1,opacity = 0.3)
+```
+
+## Zones {#SZ}
+
+```{r df.map.z}
+zones <- st_read(dsn = "D:/Sites_10/Sauri/GIS", layer = "zonas_3")
+# roches <- st_crs(roches, 2531)
+zones <- st_transform(roches, 4236) # rdev.reproj
+leaflet(zones, height = "500px") %>%
+  addWMSTiles(
+    # "http://geoserveis.icgc.cat/icc_ortohistorica/wms/service?",
+    "http://www.ign.es/wms-inspire/pnoa-ma?",
+    layers = "OI.OrthoimageCoverage",
+    options = WMSTileOptions(format = "image/png", transparent = TRUE),
+    attribution = "") %>% 
+  # addTiles() %>%  # Add default OpenStreetMap map tiles
+  # all rocks
+  addPolygons(data = zones,
+              # popup= ~secteur,
+              stroke = TRUE,
+              color = "#000000",
+              weight = 2,
+              fillOpacity = 0,
+              smoothFactor = 0.5) %>%
+  addCircleMarkers(data = roches,
+                   popup="engraved<br>rock",
+                   radius = 1,
+                   opacity = 0.3)
+  ```
+
