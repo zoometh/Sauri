@@ -33,7 +33,7 @@ library(kableExtra)
 library(readr)
 library(sf)
 
-fich <- "fiche_2020_part1.xlsx" # campagne 2020 part 1
+# fich <- "fiche_2020_part1.xlsx" # campagne 2020 part 1
 fich <- "fiche_2020_part2.xlsx" # campagne 2020 part 2
 #fich <- "fiche_19_R114.xlsx"
 fich_fotos <- "fiche_fotos.xlsx"
