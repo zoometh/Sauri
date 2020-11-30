@@ -23,6 +23,13 @@ library(rdrop2)
 library(sp)
 library(sf)
 library(plotly)
+roches <- st_read(dsn = "D:/Sites_10/Sauri/GIS/roches_pts", layer = "roches_all")
+roches <- st_transform(roches, 4236) # rdev.reproj
+zones <- st_read(dsn = "D:/Sites_10/Sauri/GIS", layer = "zonas_3")
+zones <- st_transform(zones, 4236) # rdev.reproj
+# zones <- as(zones, "Spatial")
+
+
 ```
 
 Sauri (Sort, Catalunya) is an important concentration of Medieval engravings
@@ -31,10 +38,8 @@ Sauri (Sort, Catalunya) is an important concentration of Medieval engravings
 
 The site is divided into [5 zones](#SZ)
 
-```{r df.map}
-roches <- st_read(dsn = "D:/Sites_10/Sauri/GIS/roches_pts", layer = "roches_all")
+```{r df.map, warning=F}
 # roches <- st_crs(roches, 2531)
-roches <- st_transform(roches, 4236) # rdev.reproj
 leaflet(roches, height = "500px") %>%
   addWMSTiles(
     # "http://geoserveis.icgc.cat/icc_ortohistorica/wms/service?",
@@ -44,16 +49,24 @@ leaflet(roches, height = "500px") %>%
     attribution = "") %>% 
   # addTiles() %>%  # Add default OpenStreetMap map tiles
   # all rocks
-  addCircleMarkers(popup="engraved<br>rock",radius = 1,opacity = 0.3)
+  addCircleMarkers(popup=~roche,
+                   radius = 1,
+                   opacity = 0.3)
 ```
 
 ## Zones {#SZ}
 
-```{r df.map.z}
-zones <- st_read(dsn = "D:/Sites_10/Sauri/GIS", layer = "zonas_3")
+```{r df.roche.z, warning=F}
+zones.list <- as.data.frame(zones)
+zones.list <- as.data.frame(zones.list[ ,"zona"])
+names(zones.list) <- "zones"
+kable(zones.list,"html", row.names = F) %>%
+  kable_styling(full_width = FALSE, position = "center", font_size=12)
+```
+
+```{r df.map.z, warning=F}
 # roches <- st_crs(roches, 2531)
-zones <- st_transform(roches, 4236) # rdev.reproj
-leaflet(zones, height = "500px") %>%
+leaflet(height = "500px") %>%
   addWMSTiles(
     # "http://geoserveis.icgc.cat/icc_ortohistorica/wms/service?",
     "http://www.ign.es/wms-inspire/pnoa-ma?",
@@ -63,15 +76,15 @@ leaflet(zones, height = "500px") %>%
   # addTiles() %>%  # Add default OpenStreetMap map tiles
   # all rocks
   addPolygons(data = zones,
-              # popup= ~secteur,
+              popup= ~paste0("zone: ",zona),
               stroke = TRUE,
               color = "#000000",
               weight = 2,
               fillOpacity = 0,
               smoothFactor = 0.5) %>%
-  addCircleMarkers(data = roches,
-                   popup="engraved<br>rock",
+  addCircleMarkers(data =roches,
+                   popup=~roche,
                    radius = 1,
                    opacity = 0.3)
-  ```
+```
 
