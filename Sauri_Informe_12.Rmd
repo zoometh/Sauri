@@ -1,0 +1,721 @@
+---
+title: "Gravats a Saurí (vall d’Àssua, Sort)"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+author: "Huet, T"
+abstract: "Informe de la troballa de petroglifs. Informe adreçat al Servei d’Arqueologia de la Direcció General del Patrimoni Cultural per a notificar la troballa de diversos llocs d’art rupestre a la vall d’Àssua"
+geometry: margin=2cm
+output:
+  pdf_document: default
+html_document: default
+header-includes:
+- \usepackage{pdflscape}
+- \newcommand{\blandscape}{\begin{landscape}}
+- \newcommand{\elandscape}{\end{landscape}}
+- \usepackage{booktabs}
+- \usepackage{float}
+urlcolor: blue
+linkcolor: blue
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(warn=-1)
+library(openxlsx)
+library(rgdal)
+library(raster)
+library(ggplot2)
+library(dplyr)
+library(stringr)
+library(ggrepel)
+library(gridExtra)
+library(knitr)
+library(kableExtra)
+library(readr)
+library(sf)
+
+fich <- "fiche_2020_part1.xlsx" # campagne 2020 part 1
+fich <- "fiche_2020_part2.xlsx" # campagne 2020 part 2
+#fich <- "fiche_19_R114.xlsx"
+fich_fotos <- "fiche_fotos.xlsx"
+fields_roches <- c("roche","x","y","z","topo")
+fields_fig <- c("num","roche","FG","description","doss_fotos")
+chm <- "D:/Sites_10/Sauri/"
+chm_pts <- paste0(chm,"GIS/roches_pts")
+chm_photos <- paste0(chm,"fotos")
+lzon_etud <- c(1,2,3,5)
+# lit une 1e fois
+fiche_a <- openxlsx::read.xlsx(paste0(chm,fich),
+                               rowNames = F,
+                               skipEmptyRows=TRUE)
+# trouve l'indice 'row' après quoi commence l'inventaire
+start_row <- as.numeric(rownames(fiche_a[match('num',fiche_a$THM),])) + 1
+# lit une 2e fois en commençant àaprès 'row'
+fiche <- openxlsx::read.xlsx(paste0(chm,fich),
+                               startRow = start_row,
+                               rowNames = F,
+                               skipEmptyRows=TRUE)
+# renomme les roches
+fiche$roche <- sub("^", "R", fiche$R)
+# regroupe les FG
+fiche$FG <- NA
+fiche$FG <- ifelse(!is.na(fiche$G),fiche$G,fiche$F)
+# doss photos
+fiche$doss_fotos <- NA # dossier photo
+fiche <- subset(fiche,select=c("num","jour","roche","FG","description","doss_fotos"))
+doss_fotos <- as.data.frame(list.files(chm_photos),stringsAsFactors=F) # list photos folders
+colnames(doss_fotos)[1] <- "id"
+doss_fotos$doss_fotos <- doss_fotos$id
+# merge liste roches & photos
+fiche_p <- merge(fiche,doss_fotos,by.x = "roche", by.y="id",all.x = T)
+fiche_p$doss_fotos.x <- NULL
+names(fiche_p)[names(fiche_p) == "doss_fotos.y"] <- "doss_fotos"
+```
+
+# Description des données
+
+## site
+
+
+## zones
+
+\blandscape
+
+```{r carto_zone, results = "asis", echo=FALSE, warning=FALSE,center=TRUE, fig.width=14.3,fig.height=13,fig.pos = 'H', fig.align="center"}
+for (z in lzon_etud){
+  print (paste("zone:",z))
+  cat(paste0("![](",chm, "publi/zone",z,".jpg)"), "\n")
+  #knitr::include_graphics(paste0(chm,"publi/zone",z,".jpg"))
+}
+```
+
+\elandscape
+
+# Ressources
+
+## Photos
+
+### Missing photos
+
+```{r fotos_mqe, warning=FALSE, echo=FALSE}
+### Listing des photos maqte
+lphot.mqe <- subset(fiche_p,select=c("roche","doss_fotos"))
+lphot.mqe <- lphot.mqe[is.na(lphot.mqe$doss_fotos),]
+lphot.mqe <- lphot.mqe$roche
+lphot.mqe <- sort(unique(lphot.mqe))
+cat(lphot.mqe,sep="\n")
+```
+
+
+### Arborescence de la structure des photos
+
+
+```{r struct_doss_photos, warning=FALSE, echo=FALSE}
+# dans le dossier 'travail' reproduit la structure  des dossiers images en les remplaçant par des .txt
+
+for (r in doss_fotos[,1]){
+  #print (r)
+  dir.create(paste0(chm,"travail/",r))
+  l_img <- as.data.frame(list.files(paste0(chm,"fotos/",r)),stringsAsFactors=F)
+  for (i in l_img[,1]){
+    file.create(paste0(chm,"travail/",r,"/",i,".txt"))
+  }
+}
+#write.xlsx(doss_fotos,paste0(chm,"travail/_list_fotos.xlsx"))
+```
+
+# WRITE
+
+## WRITE shapefiles
+
+```{r spatial_in, echo=FALSE}
+library(sf)
+library(shapefiles)
+# ouvre les shapefiles - - - - - - - - - - - - 
+# gps-diff
+gpsDiff <- readOGR(dsn = chm_pts, layer = "gps-D")
+names(gpsDiff)[names(gpsDiff) == "field_5"] <- "roche"
+gpsDiff[["x"]] <- gpsDiff@coords[,1]
+gpsDiff[["y"]] <- gpsDiff@coords[,2]
+names(gpsDiff)[names(gpsDiff) == "field_4"] <- "z"
+gpsDiff$z <- as.numeric(levels(gpsDiff$z))[gpsDiff$z]
+gpsDiff <- subset(gpsDiff,select=c(fields_roches))
+gpsDiff <- gpsDiff@data
+gpsDiff$roche <- as.character(gpsDiff$roche)
+# gps-Osc
+gps_Osc <- readOGR(dsn = chm_pts, layer = "Waypoints_SEP-19 waypoints")
+#names(gpsDiff)[names(gpsDiff) == "field_5"] <- "roche"
+gps_Osc[["x"]] <- gps_Osc@coords[,1]
+gps_Osc[["y"]] <- gps_Osc@coords[,2]
+names(gps_Osc)[names(gps_Osc) == "ele"] <- "z"
+#gps_Osc$z <- as.numeric(levels(gps_Osc$z))[gps_Osc$z]
+gps_Osc <- subset(gps_Osc,select=fields_roches)
+gps_Osc <- gps_Osc@data
+gps_Osc$roche <- as.character(gps_Osc$roche)
+# ortho
+ortho_z <- readOGR(dsn = chm_pts, layer = "ortho_z") # le dernier champ est celui du z
+ortho_z[["x"]] <- ortho_z@coords[,1]
+ortho_z[["y"]] <- ortho_z@coords[,2]
+ortho_z$z <- as.numeric(ortho_z$z)
+ortho_z$roche <- as.character(ortho_z$roche)
+ortho_z$topo <- as.character(ortho_z$topo)
+ortho_z <- subset(ortho_z,select=c(fields_roches,"topo_preci"))
+ortho_z <- ortho_z@data
+ortho_z <- within(ortho_z, topo[topo_preci == '-'] <- 'ortho -')
+ortho_z <- within(ortho_z, topo[topo_preci == '~'] <- 'ortho ~')
+ortho_z$topo_preci <- NULL
+# joint les différents shapefiles
+roches_pts <- rbind(gpsDiff,ortho_z)
+# joint avec les shapefiles avec la fiche
+roches_gravures_all <- merge(fiche_p,roches_pts,by="roche",all.x=T)
+roches_gravures_all <- merge(roches_gravures_all,gps_Osc,by="roche",all.x=T)
+roches_gravures_all$x <- ifelse(is.na(roches_gravures_all$x.x),
+                                roches_gravures_all$x.y,roches_gravures_all$x.x)
+roches_gravures_all$y <- ifelse(is.na(roches_gravures_all$y.x),
+                                roches_gravures_all$y.y,roches_gravures_all$y.x)
+roches_gravures_all$z <- ifelse(is.na(roches_gravures_all$z.x),
+                                roches_gravures_all$z.y,roches_gravures_all$z.x)
+roches_gravures_all$topo <- ifelse(is.na(roches_gravures_all$topo.x),
+                                   as.character(roches_gravures_all$topo.y),as.character(roches_gravures_all$topo.x))
+# export - - - - - - 
+roches_all <- roches_gravures_all[is.na(roches_gravures_all$FG),]
+roches_all <- subset(roches_all,select=c(fields_roches,"num"))
+roches_all <- roches_all[!duplicated(roches_all$roche), ]
+shp_roches <- roches_all
+shp_roches <- shp_roches[complete.cases(shp_roches), ]
+coordinates(shp_roches)=~x+y
+proj4string(shp_roches)<- CRS("+init=epsg:25831")
+#proj4string(shp_roches)<- CRS("+proj=utm +zone=31 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs")
+chm_shp <- "D:/Sites_10/Sauri/GIS/(temp)"
+roches_sp <- st_as_sf(shp_roches)
+#roches_sp <- st_read(chm_shp,"roches")
+zones_sp <- st_read("D:/Sites_10/Sauri/GIS","zonas_3")
+rocas_z <- st_join(roches_sp, zones_sp)
+rocas_z <- st_transform(rocas_z,CRS("+init=epsg:25831"))
+st_write(rocas_z, paste0(chm_pts,"/roches_all.shp"),delete_layer = T)
+
+#raster::shapefile(rocas_z, paste0(chm_pts,"/roches_all.shp"),overwrite=TRUE) # export
+#raster::shapefile(shp_roches, paste0(chm_pts,"/roches_all.shp"),overwrite=TRUE) # export
+# verifications - - - - - - - - - - - - - - - - - - - - - - - 
+# les roches manquantes (existe dans liste mais pas ds carto)
+roches_all_ss_xyz <- roches_all[is.na(roches_all$x),]
+write.xlsx(roches_all_ss_xyz,paste0(chm_pts,'/_roches_all_ss_xyz.xlsx'))
+# les roches manquantes (existe dans carto mais pas ds liste)
+roches_pts_all <- rbind(gpsDiff,ortho_z,gps_Osc)
+roches_pts_all <- roches_pts_all[grep("^R",roches_pts_all$roche), ]
+roches_ss_desc <- setdiff(roches_pts_all$roche,roches_all$roche)
+roches_ss_desc <- str_subset(roches_ss_desc, "\\.", negate = TRUE) # sans les R69.3, R69.4, etc.
+roches_ss_desc <- str_subset(roches_ss_desc, "\\-", negate = TRUE) # sans les R38-, etc.
+roches_all_ss_desc <- roches_pts_all[roches_pts_all$roche %in% roches_ss_desc,]
+shp_roches_ss_desc <- roches_all_ss_desc
+coordinates(shp_roches_ss_desc)=~x+y
+proj4string(shp_roches_ss_desc)<- CRS("+init=epsg:25831")
+#proj4string(shp_roches_ss_desc)<- CRS("+proj=utm +zone=31 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs")
+raster::shapefile(shp_roches_ss_desc, paste0(chm_pts,"/roches_ss_desc.shp"),overwrite=TRUE) # export
+```
+
+## WRITE description file
+
+```{r access_ggsheets, warning=F, echo=FALSE}
+# ## TODO:
+# library("googlesheets4")
+# suppressMessages(library(dplyr))
+# gs4_deauth()
+# read_sheet('1-YWo5Bj4bImClEAuNIUkvOqnW4brUOSu',sheet='data')
+# gs_auth(new_user = T)
+# gs_ls()
+# library(gsheet)
+# gg.root <- 'https://docs.google.com/spreadsheets/d/'
+# gg.wf <- paste0(gg.root,'1-YWo5Bj4bImClEAuNIUkvOqnW4brUOSu/edit#gid=')
+# gg.wf.data <- paste0(gg.wf,'2104102390')
+# # gg.wf.tradu <- paste0(gg.wf,'1390741865')
+# data <- gsheet2tbl(gg.wf.data)
+# data <- gsheet2tbl("https://docs.google.com/spreadsheets/d/1MlctGoDZx7rg_kuuxNS7JRkMiJdVqYdi_7dcPdT_plI/pub?output=csv")
+# myCSV<-read.csv("https://docs.google.com/spreadsheets/d/1-YWo5Bj4bImClEAuNIUkvOqnW4brUOSu/pub?output=csv")
+# library(RCurl)
+# library(mosaic)
+# mydat2 <- fetchGoogle(paste0(gg.root,
+#   "1-YWo5Bj4bImClEAuNIUkvOqnW4brUOSu/export?format=csv"))
+# mydat2
+```
+
+```{r figures_groupes, warning=F, echo=FALSE}
+#♦ divide the coding into different columns 'ico', tek', 'lat', etc.
+df_rel <- data.frame(A=character(0),
+                     B=character(0),
+                     rel=character(0)) # a completer
+from.shp <- F
+if(from.shp){
+  fig_all <- roches_gravures_all[!is.na(roches_gravures_all$FG),] # not the rocks
+} else {
+  fig_all <- fiche[!is.na(fiche$FG),]# not the rocks
+}
+# les fig/gr de fig
+#fig_all <- head(fig_all,15)
+fig_all <- subset(fig_all,select=fields_fig)
+fig_all <- fig_all[!duplicated(fig_all), ]
+# regex
+fig_all_xt <- fig_all[0,] # même structure
+fig_all_xt$comment <- fig_all_xt$ico_tec <- fig_all_xt$lat <- fig_all_xt$tec <- fig_all_xt$thm <- character() # nouvelle colonne
+# fig_all_xt$rel.a <- character() # nouvelle colonne
+# fig_all_xt$rel.b <- character() # nouvelle colonne
+for (i in 1:nrow(fig_all)){
+  # i <- 4
+  num <- fig_all[i,"num"]
+  roche <- fig_all[i,"roche"]
+  FG <- fig_all[i,"FG"]
+  descript <- fig_all[i,"description"]
+  doss_fot <- fig_all[i,"doss_fotos"]
+  print(paste0(num,'.',roche,'.',FG,'.',descript))
+  # champ commentaire - - - - - 
+  res_comm <- strsplit(descript,"\\\\c\\\\")[[1]] # divise sur '\c\'
+  ico_tech <- res_comm[1]
+  comm <- res_comm[2]
+  # champ description
+    cRel <- ">>|<>|;|=|~|;"
+  #ico_tech <- "Zq|\\t ; A->\\t%*3"
+  res <- strsplit(ico_tech,cRel)[[1]] # divise les gravures sur les relations
+  rel <- str_extract_all(ico_tech,cRel)[[1]] # recupère les relations
+  # ecrit les relations dans une table
+  #res <- "A->\\t%*3"
+  # les multiples - - - - 
+  #cat(paste(num,res))
+  nb <- gsub( ".*\\+|.*\\*", "", res)
+  for (m in 1:length(nb)){ # boucle sur les gravures séparées
+    nbs <- nb[m]
+    if (!is.na(as.integer(nbs))){
+      nbs <- gsub( "\\+|\\*.*", "", nbs)
+      nbs <- as.integer(nbs)
+      for (j in 2:nbs){
+        res <- c(res,res[m])
+      }
+    }
+  }
+  for (p in seq(1:length(res))){
+    desc_part <- res[p]
+    desc_part <- str_replace_all(string=desc_part, pattern=" ", repl="") # espace supp
+    # lateralisation
+    lat <- '' # réinitialise
+    if (!is.na(str_extract(desc_part,"\\^"))){lat <- "^"}
+    if (!is.na(str_extract(desc_part,"<-"))){lat <- "<-"}
+    if (!is.na(str_extract(desc_part,"->"))){lat <- "->"}
+    if (!is.na(str_extract(desc_part,"^((?!.*<).)-(?!.*>)"))){lat <- "-"}
+    if (!is.na(str_extract(desc_part,"\\|"))){lat <- "|"}
+    if (!is.na(str_extract(desc_part,"_"))){lat <- "_"}
+    # technique
+    tec <- '' # réinitialise
+    if (!is.na(str_extract(desc_part,"\\\\"))){
+      #print (desc_part)
+      tec <- gsub( "\\+|\\*.*", "", desc_part) # retire * et +
+      tec <- gsub('[[:digit:]]+', '', tec)
+      tec <- gsub( ".*\\\\", "", tec)
+    }
+    # thematique
+    thm <- '' # réinitialise
+    thm <-  gsub( "\\+|\\*.*", "", desc_part) # retire * et +
+    thm <- gsub('[[:digit:]]+', '', thm)
+    thm <- gsub( "\\\\.*$", "", thm)
+    thm <- gsub( "-|_|>|<|\\^|\\|", "", thm)
+    #if (desc_part == tec){tec<-''}
+    #newlin <- c(num,roche,FG,desc_part,doss_fot)
+    dff<-data.frame(num,roche,FG,thm,lat,tec,descript,comm,doss_fot,desc_part)
+    names(dff)<-c("num", "roche", "FG","thm","lat","tec","description","comment","doss_fotos","ico_tec")
+    # names(dff)<-colnames(fig_all_xt)
+    fig_all_xt <- rbind(fig_all_xt,dff)
+  }
+}
+lordcol <- c("num", "roche", "FG","thm","lat","tec","description","comment","doss_fotos","ico_tec")
+fig_all_xt$grav <- NA
+#aa <- head(fig_all_xt,20)
+ddf <- fig_all_xt[0,] # tableau vide
+#lroc <- c("R1","R2")
+lroc <-unique(fig_all_xt$roche)
+# un numéro unique aux gravures
+for (r in lroc){
+  #r <- "R1"
+  #print (r)
+  df_r <- fig_all_xt[fig_all_xt$roche == r,]
+  for (ngrav in seq(1:nrow(df_r))){
+    #print (paste("   ",ngrav))
+    df_r[ngrav,"grav"] <- ngrav
+  }
+  ddf<-rbind(ddf,df_r)
+}
+figs_all <- subset(ddf,select=c("num", "roche", "FG","grav","thm","lat","tec","description","comment","doss_fotos"))
+write.xlsx(figs_all,paste0(chm,'/list_gravures.xlsx'))
+```
+
+### Translate the coding
+
+Translate into french or catala
+
+```{r thm_trad, warning=F, echo=FALSE}
+list_grav <- openxlsx::read.xlsx(paste0(chm,"list_gravures.xlsx"),
+                               colNames = T,
+                               skipEmptyRows=TRUE)
+list_codes <- openxlsx::read.xlsx(paste0(chm,fich),
+                                  sheet = "tradu",
+                               colNames = T,
+                               skipEmptyRows=TRUE)
+lang <- "catala" # 
+list_grav$thm_xt <- NA
+list_grav_trad <- list_grav[0,]
+# les grandes classes
+THM <- unique(substr(list_grav$thm, 1, 1))
+#THM <- c("A")
+for (TH in THM){
+  # par thème
+  patt <- paste0("^",TH)
+  list_grav_THM <- list_grav[grep(patt,list_grav$thm),]
+  l_spec <- unlist(strsplit(list_grav_THM$thm,split = NULL))
+  l_spec <- l_spec[!l_spec == TH]
+  print (paste0(TH,": ",cat(sort(unique(l_spec)))))
+  # # le code
+  list_codes_THM <- list_codes[grep(TH,list_codes$T),]
+  THM_xt <- list_codes_THM[1,lang] # la première ligne traduit la grde classe
+  code_xt <- THM_xt
+  list_codes_THM <- list_codes_THM [-1,]
+  for (grav in seq(1:nrow(list_grav_THM))){
+    thmm <- list_grav_THM[grav,"thm"]
+    thmm <- substring(thmm, 2) # sans le premier caractère
+    l_spec <- unlist(strsplit(thmm,split = NULL))
+    if (length(l_spec ) == 0){
+      list_grav_THM[grav,"thm_xt"] <- THM_xt
+    }
+    if (length(l_spec ) > 0){
+      for (t in l_spec){
+        # list_codes_THM <- list_codes[grep(TH,list_codes$T),]
+        # code_xt <- list_codes_THM[1,lang] # la première ligne traduit la grde classe
+        # list_codes_THM <- list_codes_THM [-1,]
+        spec <- list_codes_THM[list_codes_THM$t==t,lang]
+        code_xt <- paste0(code_xt," + ",spec)
+      }
+      list_grav_THM[grav,"thm_xt"] <- code_xt
+      code_xt <- THM_xt
+    }
+    #print (thmm)
+  }
+  list_grav_trad <- rbind(list_grav_trad,list_grav_THM)
+}
+write.xlsx(list_grav_trad,paste0(chm,'/list_gravures_xt.xlsx'))
+```
+
+```{r thm_model, warning=F, echo=FALSE, results='asis'}
+# les gravures referentes des themes
+#list_codes$theme <- ifelse(is.na(list_codes$t), list_codes$T, paste0(list_codes$T,list_codes$t))
+#list_codes$theme <- paste0(list_codes$T,list_codes$t)
+# list_codes <- openxlsx::read.xlsx(paste0(chm,fich),
+#                                   sheet = "tradu",
+#                                colNames = T,
+#                                skipEmptyRows=TRUE)
+# tab_model <- subset(list_codes,select=c("thm",lang,"reference"))
+# tab_model <- head(tab_model,3)
+#paste0(chm,"fotos/",tab_model$reference)
+#list_codes
+# dat <- data.frame(
+#   country = c('Canada', 'United Kindom'),
+#   abbr = c('ca', 'gb'),
+#   var1 = c(1, 2),
+#   var2 = rnorm(2)
+# )
+# tab_model$flag <- sprintf('![](D:/Sites_10/Sauri/fotos/%s)', tab_model$reference)
+# #dat$flag <- sprintf('![](http://flagpedia.net/data/flags/mini/%s.png)', tab_model$reference)
+# kable(tab_model)
+# write_file(kimg, "D:/Sites_10/Sauri/xxx.html")
+# #save_kable(kimg,"D:/Sites_10/Sauri/xxx.pdf")
+```
+
+## Write photos URL listing
+
+```{r fotos_list_images_url, warning=FALSE, echo=FALSE}
+# créé le listing 'list_images_url.xlsx' à partir de 'fiche_fotos.xlsx'
+# dans l'excel créé faire: =LIEN_HYPERTEXTE(cell,"foto")
+fiche_f <- openxlsx::read.xlsx(paste0(chm,fich_fotos),
+                               rowNames = F,
+                               skipEmptyRows=TRUE)
+fiche_f$roche <- sub("^", "R", fiche_f$roche) # renomme les roches
+fiche_f$description <- NULL
+#fiche_f$chm_foto <- NA
+# les FG
+fiche_f_FG <- fiche_f[is.na(fiche_f$grav),]
+fiche_f_FG$chm_foto <- paste0(chm,"fotos/",fiche_f_FG$roche,"/",fiche_f_FG$num_foto,fiche_f_FG$format)
+fiche_f_FG$format <- fiche_f_FG$num_foto <- NULL
+# les gravures individuelles
+fiche_f_grav <- fiche_f[!is.na(fiche_f$grav),]
+fiche_f_grav$chm_foto <- paste0(chm,"fotos/",fiche_f_grav$roche,"/",fiche_f_grav$num_foto,"_",fiche_f_grav$grav,fiche_f_grav$format)
+fiche_f_grav$format <- fiche_f_grav$num_foto <- NULL
+fiche_img <- rbind(fiche_f_grav,fiche_f_FG)
+fotos_url <- paste0(chm,'list_images_url.xlsx')
+write.xlsx(fiche_img,fotos_url)
+shell.exec(fotos_url)
+```
+
+## les roches
+
+```{r roches, warning=F, echo=FALSE, results='asis'}
+
+
+# on passe les numéros des zones aux roches
+
+chm_shp <- "D:/Sites_10/Sauri/GIS/(temp)"
+roches_sp <- st_read(chm_shp,"roches")
+zones_sp <- st_read(chm_shp,"zones")
+joined_sp <- st_join(roches_sp, zones_sp)
+joined_sp$geometry <- st_as_text(joined_sp$geometry) # transforme en WKT
+df_sp <- as.data.frame(joined_sp)
+out_df <- paste0(chm_shp,'/liste_roches.xlsx')
+openxlsx::write.xlsx(df_sp, out_df,row.names = F,col.names=T,append = TRUE)
+
+```
+
+## LECTURE
+
+```{r spatial_out, echo=FALSE}
+rocas_z <- st_read(paste0(chm_pts,"/roches_all.shp"))
+list_grav_trad <- read.xlsx(paste0(chm,'/list_gravures_xt.xlsx'))
+list_photos_url <- read.xlsx(paste0(chm,'/list_images_url.xlsx'))
+```
+
+### Link photos URL listing to DB
+
+```{r fotos_list_images_url, warning=FALSE, echo=FALSE}
+list_xt_url <- paste0(chm,"/list_gravures_xt_url.xlsx") # output
+list_grav_trad$idFG <-paste0(list_grav_trad$roche,'-FG',
+                             list_grav_trad$FG)
+list_grav_trad$idG <-paste0(list_grav_trad$roche,'-FG',
+                            list_grav_trad$FG,'-G',list_grav_trad$grav)
+## get rock photos from url listing
+list_photos_rock <- list_photos_url[!is.na(list_photos_url$typeR),]
+# - - - - - - - - - - 
+# ## TODO:
+# # get default rock photo (the first one in the rock folder)
+# df_url_rocks <- data.frame(roche=character(0),
+#                            chm_foto=character(0),
+#                            stringsAsFactors = F)
+# for (rck in doss_fotos[,1]){
+#   # rck <- "R103"
+#   rck.photo <- list.files(paste0(chm_photos,"/",rck))[1] # by default the first photo is the rock one
+#   df_url_rocks[nrow(df_url_rocks)+1,"roche"] <- rck
+#   df_url_rocks[nrow(df_url_rocks),"chm_foto"] <- paste0(chm_photos,"/",rck,"/",rck.photo)
+# }
+# # replace default rock photos by registred rock photos
+# - - - - - - - - - -
+## gravures
+list_photos_url$idFG <- paste0(list_photos_url$roche,'-FG',
+                               list_photos_url$FG) # common id
+list_photos_url$idG <- paste0(list_photos_url$roche,'-FG',
+                              list_photos_url$FG,'-G',list_photos_url$grav) # common id
+# rm duplicate row on id (sic, if not duplicate row)
+list_photos_url <- list_photos_url[!duplicated(list_photos_url[ ,c("id")]),]
+# rm rock photos from grav listing
+list_photos_grav <- list_photos_url[-as.numeric(row.names(list_photos_rock)),]
+list_photos_grav$id <- paste0(list_photos_grav$roche,'-FG',
+                              list_photos_grav$FG,'-G',list_photos_grav$grav) # common id
+## links
+# link on FG
+list_db <- merge(list_grav_trad,list_photos_grav,by="id",all.x=T)
+## add rows for rocks
+data.table::setnames(list_db, old = c('roche.x','FG.x','grav.x'), new = c('roche','FG','grav'))
+selected.cols <- c("num","roche","FG","grav","thm","lat","tec","description","comment","thm_xt","chm_foto","typeR","typeFG")
+list_db <- list_db[,selected.cols]
+list_photos_rock$num <- list_photos_rock$thm <- list_photos_rock$lat <- list_photos_rock$tec <- list_photos_rock$description <- list_photos_rock$thm_xt <- NA
+list_photos_rock$id <- NULL
+list_db <- rbind(list_db,list_photos_rock)
+# list_db$chm_foto <- paste0("=LIEN_HYPERTEXTE(\"",list_db$chm_foto,"\")")
+# list_db$chm_foto <- paste0("=LIEN_HYPERTEXTE(\"",list_db$chm_foto,"\")")
+wb <- createWorkbook()
+addWorksheet(wb, "listing")
+writeData(wb, "listing", x = list_db)
+## Link to file - Text to display
+## External Hyperlink
+x <- list_db$chm_foto
+names(x) <- list_db$chm_foto
+class(x) <- "hyperlink"
+writeData(wb, sheet = 1, x = x, startRow = 2, startCol = 10)
+# writeFormula(wb,"listing",startRow = 2, startCol = idx.col,
+#              x = makeHyperlinkString(sheet=onglet.hl,row=1,col=1,text=onglet.hl))
+# # writeFormula(wb, "listing",
+# #   x = '=LIEN_HYPERTEXTE("#Sheet2!B3", "Text to Display - Link to Sheet2")',
+# #   startCol = 3
+# # )
+# v <- paste0("LIEN_HYPERTEXTE('",list_db$chm_foto,"')") ## skip header row
+# writeFormula(wb, sheet = 1, x = v, startCol = 10, startRow = 2)
+# write.xlsx(list_db,list_xt_url) # export
+saveWorkbook(wb, list_xt_url, overwrite = TRUE)
+```
+
+
+# ANALYSES
+
+## Nombre de gravures par roches
+```{r dist_gene, warning=F, echo=FALSE, results='asis'}
+thm_xt <- subset(list_grav_trad,select=c("roche","thm_xt"))
+thm_xt <- merge(thm_xt,rocas_z,by="roche",all.x=T) # merge list and shapes
+thm_xt <- subset(thm_xt,select=c("roche","thm_xt","geometry","z","zona"))
+thm_xt_z <- subset(thm_xt,select=c("roche","thm_xt","zona"))
+# export avec num zona
+openxlsx::write.xlsx(thm_xt_z, "D:/Sites_10/Sauri/list_gravures_xt_z.xlsx",row.names = F,col.names=T,append = TRUE)
+
+# nb gravures roches
+nb.grav.roche <- as.data.frame(roches_sp)
+nb.grav.roche <- subset(nb.grav.roche,select=c("roche","num"))
+nb.grav.roche <- thm_xt %>% 
+  count(roche)
+mean.gr <- mean(nb.grav.roche$n)
+median.gr <- median(nb.grav.roche$n)
+mode.gr <- as.integer(names(sort(-table(nb.grav.roche$n)))[1])
+g.dist.nbgrav <- ggplot(nb.grav.roche, aes(n)) +
+  geom_freqpoly(binwidth = 1)+
+  geom_vline(xintercept=mode.gr, linetype="dotted",
+                color = "grey", size=.5)+
+  annotate("text", x=mode.gr, y=40, label= "modo",angle=90,size=3,color = "grey") +
+  geom_vline(xintercept=mean.gr, 
+                color = "grey", size=.5)+
+  annotate("text", x=mean.gr, y=40, label= "mitjana",angle=90,size=3,color = "grey") +
+  geom_vline(xintercept=median.gr, linetype="dashed", 
+                color = "grey", size=.5)+
+  annotate("text", x=median.gr, y=40, label= "mediana",angle=90,size=3,color = "grey") +
+  xlab("nb gravats") + ylab("nb roques gravades")+
+  scale_x_continuous(breaks=c(1,5,10,20,30,50,75,100))+
+  xlim(0.9,100)+
+  theme_bw()
+ggsave(paste0(chm,"/publi/_distr_nbroche_nb_grav.svg"),g.dist.nbgrav, width = 14, height = 7, units ="cm")
+ggsave(paste0(chm,"/publi/_distr_nbroche_nb_grav.pdf"),g.dist.nbgrav, width = 14, height = 7, units ="cm")
+```
+
+## Altitudes
+
+## Altitudes générales
+
+```{r dist_ali, warning=F, echo=FALSE, results='asis'}
+# altitudes histogrammes
+altis.zonas <- thm_xt %>% 
+  group_by(zona) %>% 
+  mutate(alt.min = min(z),
+         alt.max  = max(z),
+         alt.moy = mean(z))
+altis.zonas <- subset(altis.zonas,select=c("zona","alt.min","alt.max","alt.moy"))
+altis.zonas <- altis.zonas[!duplicated(altis.zonas), ]
+thm_xt_sp <- st_as_sf(thm_xt) # -> sf
+nprosp.alt <- c(1440,1600) # no prospected
+mycolo <- c("red","blue","yellow","green")
+# regroupements
+thm_xt_sp <- thm_xt_sp[order(thm_xt_sp$thm_xt),] 
+# min.mean.sd.max <- function(x) {
+#   r <- c(min(x), mean(x) - sd(x), mean(x), mean(x) + sd(x), max(x))
+#   names(r) <- c("ymin", "lower", "middle", "upper", "ymax")
+#   r
+# }
+g.hist.thm <- ggplot(thm_xt_sp) +
+  ggtitle("distribució d'altituds del gravat")+
+  xlab("altituds (msnm)") + ylab("total")+
+  annotate("rect",xmin=nprosp.alt[1],xmax=nprosp.alt[2],ymin=-Inf,ymax=Inf, alpha=0.1, fill="black")+
+  annotate("text", x=1500, y=100, label= "zone 4 \n no prospectada",angle=90,size=3) +
+  geom_text(data=altis.zonas, 
+            mapping=aes(x = alt.moy,y=300,label=paste0("zona ",zona)),angle=90,size=3,vjust=-1,hjust=1)+
+  geom_rect(data=altis.zonas, 
+            mapping=aes(xmin=alt.min, xmax=alt.max, ymin=0, ymax=Inf), fill=mycolo, alpha=0.1)+
+  geom_histogram(aes(x = z), colour = "black", fill = "white", binwidth = 10)+
+  theme(axis.text.y = element_text(angle=90))+
+  theme_bw()
+# ggsave(paste0(chm,"/publi/_alti_thm_hist.svg"),g.hist.thm, width = 16, height = 10, units ="cm")
+ggsave(paste0(chm,"/publi/_alti_thm_hist.pdf"),g.hist.thm, width = 16, height = 10, units ="cm")
+```
+
+
+## Altitudes thematique
+```{r dist_alti_thm, warning=F, echo=FALSE, results='asis'}
+# boxplot des altitudes par themes
+g.bx.thm <- ggplot(aes(y = z, x = thm_xt),data = thm_xt_sp)+
+  geom_boxplot(fatten = 1.5, width=0.7,lwd=0.1,outlier.shape = NA)+
+  #stat_summary(fun.data = min.mean.sd.max, geom = "boxplot",position=position_dodge(width=.5), size=.5)+
+  geom_jitter(position=position_jitter(width=.5), size=.2, aes(colour = thm_xt_sp$zona))+
+  annotate("rect",ymin=nprosp.alt[1],ymax=nprosp.alt[2],xmin=-Inf,xmax=Inf, alpha=0.1, fill="black")+
+  annotate("text", y=1500, x=25, label= "zone 4 \n no prospectada",size=3,hjust=0) +
+  labs(x="temas", y="altituds (msnm)", colour="zonas")+
+  #xlab("temas") + ylab("altituds (msnm)")+
+  theme_bw()+
+  theme(legend.title = element_text(size = 8),
+        legend.text = element_text(size = 6),
+        #legend.key.size = unit(6,"line"),
+        axis.text.y = element_text(angle=90, size=5),
+        axis.text.x = element_text(angle=90, size=5,hjust=1,vjust=0))+
+  guides(color = guide_legend(override.aes = list(size=2)))
+# ggsave(paste0(chm,"/publi/_alti_thm_boxplot.svg"),g.bx.thm, width = 18, height = 24, units ="cm")
+ggsave(paste0(chm,"/publi/_alti_thm_boxplot.pdf"),g.bx.thm, width = 18, height = 24, units ="cm")
+```
+
+## plotly
+
+```{r plotly, warning=F, echo=FALSE, results='asis'}
+## spatial
+thm_xt <- subset(list_grav_trad,select=c("roche","thm_xt"))
+thm_xt <- merge(thm_xt,rocas_z,by="roche",all.x=T) # merge list and shapes
+thm_xt <- subset(thm_xt,select=c("roche","thm_xt","geometry","z","zona"))
+```
+
+
+```{r spati, warning=F, echo=FALSE, results='asis'}
+# spatial - - - - - - - - - - - - - - - - - 
+spat <- T
+if (spat){
+  # thm
+  lthms <- list(# ico
+    thm_cavalier=c("thm","A.?h"),
+    thm_arbaletrier=c("thm","A.?b"),
+    thm_cheval=c("thm","Z.?h"),
+    thm_oiseau=c("thm","Z.?b"),
+    thm_fleche=c("thm","T.?f"),
+    thm_arbalete=c("thm","T.?b"),
+    thm_cornemuse=c("thm","T.?m"),
+    thm_pentacle=c("thm","G.?p"),
+    thm_croix_chretienne=c("thm","G.?k"),
+    thm_ecritures=c("thm","^L"),
+    tec_naviforme=c("tec",".?n.?"),
+    lat_droite=c("lat","->"),
+    lat_gauche=c("lat","<-")
+  )
+  # spatial
+  lgg <- list()
+  for (i in seq(1:length(lthms))){
+    nom <- names(lthms[i])
+    print (nom)
+    #patt <- as.character(lthms[i])
+    patt <- as.character(lthms[i][[1]][2])
+    col <- lthms[i][[1]][1]
+    #ico <- fig_all_xt[grep(patt, fig_all_xt$thm),]
+    ico <- fig_all_xt[grep(patt, fig_all_xt[,col]),]
+    thm_ct_r <- ico %>% count(roche)
+    thm_ct_r$roche <- as.character(thm_ct_r$roche)
+    sp_thm_ct_r <- merge(thm_ct_r,roches_all,by.x="roche",by.y="roche",all.x=TRUE)
+    sp_thm_ct_r <- sp_thm_ct_r[!duplicated(sp_thm_ct_r$roche), ]
+    nrow(sp_thm_ct_r)
+    gg_ico <- ggplot(sp_thm_ct_r,aes(x,y,label=roche))+
+      ggtitle(nom)+
+      geom_point(data=roches_all,aes(x,y),show.legend=FALSE,color="grey")+
+      geom_point(aes(size=n, color='blue'),show.legend=FALSE)+
+      geom_text_repel(size=1.5,segment.alpha = 0.3, segment.size = 0.1)+
+      coord_fixed()+
+      theme_bw()+
+      theme(plot.title = element_text(size = 8))+
+      theme(axis.title=element_blank(),
+            axis.text=element_blank(),
+            axis.ticks=element_blank())
+    lgg[[length(lgg)+1]] <- gg_ico
+  }
+  gg_ico
+  ngg <- length(lgg) # nombre de carte
+  #plot_lgg <- grid.arrange(grobs = lgg, ncol=2)
+  margin = theme(plot.margin = unit(c(0,0,0,0), "in"))
+  ggsave(file = paste0(chm,"publi/_spat_ico.pdf"), 
+       arrangeGrob(grobs = lapply(lgg, "+", margin),ncol=1),
+       width = length(lthms),
+       height = length(lthms)*2)
+  ggsave(file = paste0(chm,"publi/_spat_ico.svg"), 
+       arrangeGrob(grobs = lapply(lgg, "+", margin),ncol=1),
+       width = length(lthms),
+       height = length(lthms)*2)
+  # shell.exec(paste0(chm,"publi/_spat_ico.pdf"))
+  # ggsave(paste0(chm,"publi/spat_ico.pdf"), plot_lgg,
+  #        width = 12, height = length(lthms))
+}
+```
