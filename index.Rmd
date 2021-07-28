@@ -1,12 +1,25 @@
 ---
-title: "Sauri"
-author: "team"
+title: "<span style='font-size: 40px;font-family:Luminari, fantasy'><b>Sauri Pallars</b></style> <span style='font-size: 30px'> <br>art rupestre medieval al Pirineu català</style>"
+author: "Universitat Autonoma de Barcelona (UAB) <br> Grup d'Arqueologia de l'Alta Muntanya (GAAM)"
 # date: "11/12/2020"
-header-includes:
-  # - \usepackage{float}
-  # - \floatplacement{figure}{H}  #make every figure with capti
-output: html_document
+bibliography: data/references.bib
+output:
+  # ioslides_presentation:
+  #   css: css.css
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
 ---
+
+```{r, echo=FALSE}
+url.root <- "https://raw.githubusercontent.com/zoometh/thomashuet/main/img/"
+htmltools::img(src = paste0(url.root, "prj_sauri.png"), 
+               alt = 'logo', 
+               width = '120px',
+               style = 'position:absolute; top:0; right:0; padding:10px;')
+```
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, fig.width = 10, fig.height = 10)
@@ -23,45 +36,87 @@ library(rdrop2)
 library(sp)
 library(sf)
 library(plotly)
-roches <- st_read(dsn = "D:/Sites_10/Sauri/GIS/roches_pts", layer = "roches_all")
+library(openxlsx)
+library(ggplot2)
+library(stringr)
+library(ggrepel)
+library(gridExtra)
+library(readr)
+library(shapefiles)
+library(rgdal)
+library(raster)
+
+chm <- "D:/Sites_10/Sauri/"
+
+roches <- st_read(dsn = paste0(chm, "GIS/roches_pts"), layer = "roches_all")
+# roches <- st_read(dsn = "D:/Sites_10/Sauri/GIS/roches_pts", layer = "roches_all")
 roches <- st_transform(roches, 4236) # rdev.reproj
-zones <- st_read(dsn = "D:/Sites_10/Sauri/GIS", layer = "zonas_3")
+zones <- st_read(dsn = paste0(chm, "GIS"), layer = "zonas_3")
 zones <- st_transform(zones, 4236) # rdev.reproj
 # zones <- as(zones, "Spatial")
+chm_photos <- paste0(chm,"fotos")
+chm_pts <- paste0(chm,"GIS/roches_pts")
 
+#fich <- "fiche_19_R114.xlsx"
+# fich <- "fiche_2020_part1.xlsx" # campagne 2020 part 1
+# fich <- "fiche_2020_part2.xlsx" # campagne 2020 part 2
+fich <- "fiche_2019_20.xlsx" # le fichie source
+list_grav_xt <- "list_gravures_xt" # le decodage des gravures
+fich_fotos <- "fiche_fotos.xlsx" # TODO
+shape.name.roches <- "roques" # dans le dossier 'chm_pts'
+fields_roches <- c("roche", "x", "y", "z", "topo")
+fields_fig <- c("num", "roche", "FG", "description", "doss_fotos")
+lzon_etud <- c(1, 2, 3, 4, 5)
+mycolo <- c("red", "orange", "yellow", "green", "blue") # zone colors
 
+# lit une 1e fois
+fiche_a <- openxlsx::read.xlsx(paste0(chm, fich),
+                               rowNames = F,
+                               skipEmptyRows = TRUE)
+# trouve l'indice 'row' après quoi commence l'inventaire
+start_row <- as.numeric(rownames(fiche_a[match('num', fiche_a$THM), ])) + 1
+# lit une 2e fois en commençant àaprès 'row'
+fiche <- openxlsx::read.xlsx(paste0(chm, fich),
+                             startRow = start_row,
+                             rowNames = F,
+                             skipEmptyRows=TRUE)
+# renomme les roches
+fiche$roche <- sub("^", "R", fiche$R)
+# regroupe les FG
+fiche$FG <- NA
+fiche$FG <- ifelse(!is.na(fiche$G), fiche$G, fiche$F)
+# doss photos
+fiche$doss_fotos <- NA # dossier photo
+fiche <- subset(fiche,select=c("num", "jour", "roche", "FG", "description", "doss_fotos"))
+doss_fotos <- as.data.frame(list.files(chm_photos), 
+                            stringsAsFactors=F) # list photos folders
+colnames(doss_fotos)[1] <- "id"
+doss_fotos$doss_fotos <- doss_fotos$id
+# merge liste roches & photos
+fiche_p <- merge(fiche,doss_fotos,by.x = "roche", by.y="id", all.x = T)
+fiche_p$doss_fotos.x <- NULL
+names(fiche_p)[names(fiche_p) == "doss_fotos.y"] <- "doss_fotos"
+
+zones.areas.m2 <- st_area(zones)
+zones.areas.ha <- as.numeric(zones.areas.m2/10000) # by zones
+zones.areas.ha <- round(sum(zones.areas.ha), 0) # total area
 ```
+&nbsp;
 
-Sauri (Sort, Catalunya) is an important concentration of Medieval engravings
+Sauri (Pallars Sobirà, Lleida), al Pirineu català, és una important concentració de art rupestre medieval amb aproximadament 4,000 gravats [@Gassiot20]. Fins allà la recerca ha permès documentar 372 roques amb petroglifs que contenen de 3940 gravats. La majoria d'aquests gravats (~ 3,000) i roques gravades (~ 300) s'han localitzat, fotografiat i descrit breument 
 
-# The rock-art site {#ra}
 
-The site is divided into [5 zones](#SZ)
+# El jaciment arqueològic {#ra}
 
-```{r df.map, warning=F}
-# roches <- st_crs(roches, 2531)
-leaflet(roches, height = "500px") %>%
-  addWMSTiles(
-    # "http://geoserveis.icgc.cat/icc_ortohistorica/wms/service?",
-    "http://www.ign.es/wms-inspire/pnoa-ma?",
-    layers = "OI.OrthoimageCoverage",
-    options = WMSTileOptions(format = "image/png", transparent = TRUE),
-    attribution = "") %>% 
-  # addTiles() %>%  # Add default OpenStreetMap map tiles
-  # all rocks
-  addCircleMarkers(popup=~roche,
-                   radius = 1,
-                   opacity = 0.3)
-```
-
-## Zones {#SZ}
+El jaciment es divideix en 5 zones i ocupa `r zones.areas.ha` hectàres
 
 ```{r df.roche.z, warning=F}
+
 zones.list <- as.data.frame(zones)
 zones.list <- as.data.frame(zones.list[ ,"zona"])
 names(zones.list) <- "zones"
-kable(zones.list,"html", row.names = F) %>%
-  kable_styling(full_width = FALSE, position = "center", font_size=12)
+# kable(zones.list,"html", row.names = F) %>%
+#   kable_styling(full_width = FALSE, position = "center", font_size=12)
 ```
 
 ```{r df.map.z, warning=F}
@@ -85,6 +140,248 @@ leaflet(height = "500px") %>%
   addCircleMarkers(data =roches,
                    popup=~roche,
                    radius = 1,
-                   opacity = 0.3)
+                   opacity = 0.5)
 ```
+
+
+## Descripció de l'art rupestre {#A}
+
+```{r g.dist.desc, warning=F, echo=FALSE, message = F}
+# list_grav_xt <- "list_gravures_xt_2019_2020_1" # le fichier .xlsx
+# thm_xt <-read.xlsx(paste0(chm,'/', list_grav_xt, '.xlsx'))
+rocas_z <- st_read(paste0(chm_pts,"/", shape.name.roches,".shp"), quiet = T)
+list_grav_trad <- read.xlsx(paste0(chm,"/", list_grav_xt, ".xlsx"))
+n.roches <- length(unique(list_grav_trad$roche))
+n.gravures <- nrow(list_grav_trad)
+thm_xt <- subset(list_grav_trad, select=c("roche","thm_xt"))
+thm_xt <- merge(thm_xt, rocas_z, by = "roche", all.x = T) # merge list and shapes
+thm_xt <- subset(thm_xt, select=c("roche", "thm_xt", "geometry", "z", "zona"))
+thm_xt_z <- subset(thm_xt,select=c("roche", "thm_xt", "zona"))
+```
+
+Es descriuen `r n.roches` roques gravades i `r n.gravures` gravats
+
+### Nombre de gravats per roca {#Anb}
+
+```{r g.dist.nbgrav.calc, warning=F, echo=FALSE, message = F}
+# list_grav_xt <- "list_gravures_xt_2019_2020_1" # le fichier .xlsx
+# thm_xt <-read.xlsx(paste0(chm,'/', list_grav_xt, '.xlsx'))
+# rocas_z <- st_read(paste0(chm_pts,"/", shape.name.roches,".shp"), quiet = T)
+# list_grav_trad <- read.xlsx(paste0(chm,"/", list_grav_xt, ".xlsx"))
+# thm_xt <- subset(list_grav_trad, select=c("roche","thm_xt"))
+# thm_xt <- merge(thm_xt, rocas_z, by="roche", all.x=T) # merge list and shapes
+# thm_xt <- subset(thm_xt, select=c("roche","thm_xt","geometry","z","zona"))
+# thm_xt_z <- subset(thm_xt,select=c("roche","thm_xt","zona"))
+# # export avec num zona
+# openxlsx::write.xlsx(thm_xt_z,
+#                      paste0("D:/Sites_10/Sauri/", list_grav_xt,"_z.xlsx"),
+#                      row.names = F,
+#                      col.names=T,
+#                      append = TRUE)
+# nb gravures roches
+# chm_shp <- "D:/Sites_10/Sauri/GIS/roches_pts"
+# roches_sp <- st_read(roches, shape.name.roches)
+nb.grav.roche <- as.data.frame(roches)
+nb.grav.roche <- subset(nb.grav.roche, select=c("roche","num"))
+nb.grav.roche <- thm_xt %>% 
+  count(roche)
+# stats
+mean.gr <- mean(nb.grav.roche$n)
+median.gr <- median(nb.grav.roche$n)
+mode.gr <- as.integer(names(sort(-table(nb.grav.roche$n)))[1])
+#
+g.dist.nbgrav <- ggplot(nb.grav.roche, aes(n)) +
+  geom_freqpoly(binwidth = 1, size=.3)+
+  # mode
+  geom_vline(xintercept=mode.gr, 
+             linetype="dotted",
+             color = "orange",
+             size=.3)+
+  annotate("text", x=mode.gr, y=40, 
+           label= paste("modo:", mode.gr),
+           angle=90,size=3,
+           color = "red") +
+  # mean
+  geom_vline(xintercept=mean.gr, 
+             color = "orange",
+             size=.3)+
+  annotate("text", x=mean.gr, y=40, 
+           label= paste("mitjana:", round(mean.gr, 1)),
+           angle=90,size=3,
+           color = "red") +
+  # median
+  geom_vline(xintercept=median.gr,
+             linetype="dashed", 
+             color = "orange",
+             size=.3)+
+  annotate("text", x=median.gr, y=40,
+           label= paste("mediana:", median.gr),
+           angle=90,size=3,
+           color = "red") +
+  xlab("nb gravats") + 
+  ylab("nb roques gravades") +
+  scale_x_continuous(breaks=c(1, 5, 10, 20, 30, 50, 75, max(nb.grav.roche$n))) +
+  # xlim(0.9, 100)+
+  theme_bw()
+```
+
+La distribució del nombre de gravats per les roques gravades és propera a una distribució logarítmica amb una majoria de roques amb `r mode.gr` gravats i, de mitjana, amb `r round(mean.gr, 1)` gravats
+
+```{r g.dist.nbgrav.graph, warning=F, echo=FALSE, out.height="50%"}
+g.dist.nbgrav
+```
+
+### Altituds
+
+#### Altituds generals
+
+```{r dist_alti, warning=F, echo=FALSE}
+z.min <- round(min(thm_xt$z, na.rm = T), 0)
+z.max <- round(max(thm_xt$z, na.rm = T), 0)
+# altitudes histogrammes
+altis.zonas <- thm_xt %>% 
+  group_by(zona) %>% 
+  mutate(alt.min = min(z),
+         alt.max  = max(z),
+         alt.moy = mean(z))
+# rm NA
+altis.zonas <- altis.zonas[!is.na(altis.zonas$zona), ]
+altis.zonas <- subset(altis.zonas,select=c("zona",
+                                           "alt.min",
+                                           "alt.max",
+                                           "alt.moy"))
+altis.zonas <- altis.zonas[!duplicated(altis.zonas), ]
+thm_xt_sp <- st_as_sf(thm_xt) # -> sf
+# nprosp.alt <- c(1440, 1600) # no prospected
+# regroupements
+thm_xt_sp <- thm_xt_sp[order(thm_xt_sp$thm_xt),] 
+# min.mean.sd.max <- function(x) {
+#   r <- c(min(x), mean(x) - sd(x), mean(x), mean(x) + sd(x), max(x))
+#   names(r) <- c("ymin", "lower", "middle", "upper", "ymax")
+#   r
+# }
+g.hist.thm <- ggplot(thm_xt_sp) +
+  ggtitle("distribució d'altituds del gravat") +
+  # annotate("rect", 
+  #          xmin=nprosp.alt[1],
+  #          xmax=nprosp.alt[2],
+  #          ymin=-Inf, ymax=Inf,
+  #          alpha=0.1, fill="black")+
+  # annotate("text", x=1500, y=100, label= "zone 4 \n no prospectada",angle=90,size=3) +
+  geom_rect(data=altis.zonas, 
+            mapping=aes(xmin=alt.min, xmax=alt.max, 
+                        ymin=0, ymax=Inf),
+            fill=mycolo, alpha=0.1)+
+  geom_histogram(aes(x = z), colour = "black",
+                 fill = "white", binwidth = 10) +
+  geom_text(data=altis.zonas, 
+            mapping=aes(x = alt.moy, y=300,
+                        label=paste0("zona ",zona)),
+            angle=90,size=3,vjust=-1,hjust=1) +
+  theme(axis.text.y = element_text(angle=90)) +
+  xlab("altituds (msnm)") + 
+  ylab("total") +
+  theme_bw()
+# ggsave(paste0(chm,"/publi/_alti_thm_hist.svg"),g.hist.thm, width = 16, height = 10, units ="cm")
+# ggsave(paste0(chm,"/publi/_alti_thm_hist.pdf"),g.hist.thm, width = 16, height = 10, units ="cm")
+```
+
+Les roques gravades es distribueixen entre els `r z.min` msnm i els `r z.max` msnm
+
+```{r dist_alti.graph, warning=F, echo=FALSE, out.height="50%"}
+g.hist.thm
+```
+
+## Altituds de temes gravats
+
+```{r dist_alti_thm, warning=F, echo=FALSE, results='asis', out.width="100%"}
+# boxplot des altitudes par themes
+# rocas_z <- st_read(paste0(chm_pts,"/", shape.name.roches,".shp"))
+# list_grav_trad <- read.xlsx(paste0(chm,"/", list_grav_xt, ".xlsx"))
+# thm_xt <- subset(list_grav_trad, select=c("roche","thm_xt"))
+# thm_xt <- merge(thm_xt, rocas_z, by="roche", all.x=T) # merge list and shapes
+# thm_xt <- subset(thm_xt, select=c("roche","thm_xt","geometry","z","zona"))
+
+# create graph of boxplots for themes altitudes (z)
+# order by thm z mean
+# df <- df.patts
+df <- thm_xt
+df <- df[!is.na(df$thm_xt), ]
+# zmean
+thm_xt_zmean <- df %>%
+  group_by(thm_xt) %>%
+  summarize(z_mean = mean(z, na.rm=TRUE))
+# count
+thm_xt_count <- df %>%
+  group_by(thm_xt) %>%
+  summarise(n = n())
+thm_xt_zmean <- merge(thm_xt_zmean, thm_xt_count, by = "thm_xt")
+thm_xt_zmean_order <- thm_xt_zmean[order(thm_xt_zmean$z_mean),"thm_xt"]
+# thm_xt_zmean_order <- thm_xt_zmean_order$thm_xt
+# reorder on factors/zmean
+# thm_xt_ordered_by_zmean <- thm_xt[match(thm_xt_zmean_order$thm_xt,
+#                                         thm_xt$thm_xt),]
+df$thm_xt <- factor(df$thm_xt, levels = thm_xt_zmean_order)
+df <- merge(df, thm_xt_zmean, by="thm_xt", all.x = T)
+df_sp <- st_as_sf(df) # -> sf
+# max/min for ggplot
+z.min <- plyr::round_any(min(df$z, na.rm = T)-50, 50, f = ceiling)
+z.max <- plyr::round_any(max(df$z, na.rm = T), 50, f = ceiling)
+# size depend from nb thms (dim output, y labels)
+siz.rec <- length(unique(df$thm_xt))
+if(siz.rec < 33){by <- 100} else {by <- 50}
+#
+a.marg <- z.max + 25
+ggplot(data = df_sp, aes(y = z, x = thm_xt)) +
+  geom_boxplot(fatten = 1.5, width=0.7, lwd=0.1, outlier.shape = NA) +
+  #stat_summary(fun.data = min.mean.sd.max, geom = "boxplot",position=position_dodge(width=.5), size=.5)+
+  geom_jitter(position=position_jitter(width=.5),
+              size=.2, alpha = 0.5, aes(colour = df_sp$zona)) +
+  geom_point(y = df_sp$z_mean, x = df_sp$thm_xt,
+             shape= 3, color = "red", cex = .5) + # mean
+  geom_text(y = z.max, x = df_sp$thm_xt, label = df_sp$n, size = 1.5, hjust = 0.5) + # numbers
+  # annotate("rect",ymin=nprosp.alt[1],ymax=nprosp.alt[2],xmin=-Inf,xmax=Inf, alpha=0.1, fill="black")+
+  # annotate("text", y=1500, x=25, label= "zone 4 \n no prospectada",size=3,hjust=0) +
+  labs(x="temas", y="altituds (msnm)", colour="zonas")+
+  expand_limits(y = c(z.min, a.marg)) +
+  scale_y_continuous(breaks = seq(z.min, z.max, by = by)) +
+  # scale_y_continuous(breaks = seq(z.min, z.max, by = by)) +
+  #xlab("temas") + ylab("altituds (msnm)")+
+  theme_bw()+
+  theme(legend.title = element_text(size = 8),
+        legend.text = element_text(size = 6),
+        #legend.key.size = unit(6,"line"),
+        axis.title=element_text(size=7),
+        axis.text.y = element_text(size=6),
+        axis.text.x = element_text(size=6))+
+  # axis.text.y = element_text(angle=90, size=5),
+  # axis.text.x = element_text(angle=90, size=5, hjust=1, vjust=0))+
+  coord_flip()+
+  scale_colour_manual(values = mycolo) +
+  guides(color = guide_legend(override.aes = list(size=2)))
+# ggsave(paste0(chm,"/publi/_alti_thm_boxplot.svg"),g.bx.thm, width = 18, height = 24, units ="cm")
+# width = 18, height = 24, units ="cm")
+
+# format.out <- ".pdf"
+# name.out <- paste0("_alti_det_thm_boxplot_1", format.out)
+# 
+# f.thm.z.boxplot(thm_xt, name.out) # all theme
+# f.thm.z.boxplot(df.patts, paste0("_alti_main_thm_boxplot", format.out)) # all theme
+
+```
+
+# Difusió
+
+## Tribuna d'Arqueologia
+
+El 21 d'abril 2021, a la "Tribuna d'Arqueologia" de Barcelona, Ermengol Gassiot Balbè, Oscar Augé i Thomas Huet van presentar un primer estat de recerca sobre els gravats de Sauri
+
+<div style="width:600px; height:400px; margin: auto">
+[![](https://raw.githubusercontent.com/zoometh/Sauri/main/img/tribuna21.png)](https://www.youtube.com/watch?v=4b7gLw4NV_E)
+<center>Tribuna d'Arqueologia video (21/04/21, Barcelona)</center>
+</div>
+
+# References
+
+
 
