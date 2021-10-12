@@ -1,0 +1,57 @@
+---
+title: "<span style='font-size: 40px;font-family:Luminari, fantasy'><b>Solà de Saurí</b></style> <span style='font-size: 30px'> <br>art rupestre medieval al Pirineu català</style>"
+pagetitle: "Solà de Saurí - AWS tutorial"
+author: "Universitat Autonoma de Barcelona (UAB) <br> Grup d'Arqueologia de l'Alta Muntanya (GAAM)"
+# date: "11/12/2020"
+# bibliography: data/references.bib
+output:
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+---
+
+```{r, echo=FALSE}
+url.root <- "https://raw.githubusercontent.com/zoometh/thomashuet/main/img/"
+htmltools::img(src = paste0(url.root, "prj_sauri.png"), 
+               alt = 'logo', 
+               width = '120px',
+               style = 'position:absolute; top:0; right:0; padding:10px;')
+```
+
+```{r setup, include=FALSE}
+# knitr::opts_chunk$set(echo = FALSE, fig.width = 10, fig.height = 10)
+# # opts_chunk$set(fig.width=12, fig.height=8)
+aws.account.id <- "238927671855"
+aws.iam.user.name <- "sauri-pallars"
+aws.sauri.s3 <- "sauri-pallars"
+```
+&nbsp;
+
+# Introduction
+
+Tutorial to manage data on Amazon Web Service (AWS).
+
+## Login
+
+Go on [AWS website](https://aws.amazon.com/) and choose 'Sign In to the Console'. Then, choose 'Sign in as IAM user'. The Sauri account ID is <b>``r aws.account.id``</b>, the IAM user name is <b>``r aws.iam.user.name``</b>. You will also have to write your password.
+
+<div style="width:300px; height:300px; margin: auto">
+![](https://raw.githubusercontent.com/zoometh/Sauri/main/dev/aws/user_iam_auth.png)
+</div>
+
+You only have the possibility to access the S3 buckets^[these are folders]. Click on the S3 icon
+
+<div style="width:400px; height:400px; margin: auto">
+![](https://raw.githubusercontent.com/zoometh/Sauri/main/dev/aws/user_iam_s3.png)
+</div>
+
+Within the S3 buckets, choose <b>``r aws.sauri.s3``</b>
+
+<div style="width:700px; height:400px; margin: auto">
+![](https://raw.githubusercontent.com/zoometh/Sauri/main/dev/aws/user_iam_s3_sauri-pallars.png)
+</div>
+
+
+You can compute various action on the `r aws.sauri.s3` S3 bucket: upload new files, delete files, download, etc.
