@@ -1,0 +1,122 @@
+---
+title: "<span style='font-size: 40px;font-family:Luminari, fantasy'><b>Sauri Pallars</b></style> <span style='font-size: 30px'> <br>art rupestre medieval al Pirineu català</style>"
+author: "Universitat Autonoma de Barcelona & Grup d'Arqueologia de l'Alta Muntanya (UAB-GAAM)"
+# date: "11/12/2020"
+bibliography: data/references.bib
+output:
+  # ioslides_presentation:
+  #   css: css.css
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+---
+
+```{r, echo=FALSE}
+url.root <- "https://raw.githubusercontent.com/zoometh/thomashuet/main/img/"
+htmltools::img(src = paste0(url.root, "prj_sauri.png"), 
+               alt = 'logo', 
+               width = '120px',
+               style = 'position:absolute; top:0; right:0; padding:10px;')
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, fig.width = 10, fig.height = 10)
+# opts_chunk$set(fig.width=12, fig.height=8)
+library(htmlwidgets)
+library(kableExtra)
+library(dplyr)
+library(knitr)
+library(magick)
+library(leaflet)
+library(RPostgreSQL)
+library(rpostgis)
+library(rdrop2)
+library(sp)
+library(sf)
+library(plotly)
+roches <- st_read(dsn = "D:/Sites_10/Sauri/GIS/roches_pts", layer = "roches_all")
+# roches <- st_read(dsn = "D:/Sites_10/Sauri/GIS/roches_pts", layer = "roches_all")
+roches <- st_transform(roches, 4236) # rdev.reproj
+zones <- st_read(dsn = "D:/Sites_10/Sauri/GIS", layer = "zonas_3")
+zones <- st_transform(zones, 4236) # rdev.reproj
+# zones <- as(zones, "Spatial")
+
+
+```
+&nbsp;
+
+Sauri (Pallars Sobirà, Lleida), al Pirineu català, és una important concentració de art rupestre medieval amb aproximadament 4,000 gravats [@Gassiot20]
+  
+
+# El Jaciment arqueològic {#ra}
+
+El lloc es divideix en [5 zones](#SZ)
+
+```{r df.map, warning=F}
+# roches <- st_crs(roches, 2531)
+leaflet(roches, height = "500px") %>%
+  addWMSTiles(
+    # "http://geoserveis.icgc.cat/icc_ortohistorica/wms/service?",
+    "http://www.ign.es/wms-inspire/pnoa-ma?",
+    layers = "OI.OrthoimageCoverage",
+    options = WMSTileOptions(format = "image/png", transparent = TRUE),
+    attribution = "") %>% 
+  addProviderTiles(providers$OpenTopoMap, group='Topo') %>%
+  # addTiles() %>%  # Add default OpenStreetMap map tiles
+  # all rocks
+  addCircleMarkers(popup=~roche,
+                   radius = 1,
+                   opacity = 0.3) %>%
+    addLayersControl(
+    baseGroups = c('OSM', 'Topo'))
+```
+
+## Zones {#SZ}
+
+```{r df.roche.z, warning=F}
+zones.list <- as.data.frame(zones)
+zones.list <- as.data.frame(zones.list[ ,"zona"])
+names(zones.list) <- "zones"
+kable(zones.list,"html", row.names = F) %>%
+  kable_styling(full_width = FALSE, position = "center", font_size=12)
+```
+
+```{r df.map.z, warning=F}
+# roches <- st_crs(roches, 2531)
+leaflet(height = "500px") %>%
+  addWMSTiles(
+    # "http://geoserveis.icgc.cat/icc_ortohistorica/wms/service?",
+    "http://www.ign.es/wms-inspire/pnoa-ma?",
+    layers = "OI.OrthoimageCoverage",
+    options = WMSTileOptions(format = "image/png", transparent = TRUE),
+    attribution = "") %>% 
+  # addTiles() %>%  # Add default OpenStreetMap map tiles
+  # all rocks
+  addPolygons(data = zones,
+              popup= ~paste0("zone: ",zona),
+              stroke = TRUE,
+              color = "#000000",
+              weight = 2,
+              fillOpacity = 0,
+              smoothFactor = 0.5) %>%
+  addCircleMarkers(data =roches,
+                   popup=~roche,
+                   radius = 1,
+                   opacity = 0.5)
+```
+
+## Difusió
+
+### Tribuna d'Arqueologia
+
+<div style="width:600px; height:400px; margin: auto">
+[![](https://raw.githubusercontent.com/zoometh/Sauri/main/img/tribuna21.png)](https://www.youtube.com/watch?v=4b7gLw4NV_E)
+<center>Tribuna d'Arqueologia video (21/04/21, Barcelona)</center>
+</div>
+
+# References
+
+
+  
