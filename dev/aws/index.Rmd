@@ -12,7 +12,9 @@ output:
       smooth_scroll: false
 ---
 
-```{r, echo=FALSE}
+```{r, echo = FALSE, message=F, warning=F}
+library(knitr)
+library(kableExtra)
 url.root <- "https://raw.githubusercontent.com/zoometh/thomashuet/main/img/"
 htmltools::img(src = paste0(url.root, "prj_sauri.png"), 
                alt = 'logo', 
@@ -23,6 +25,8 @@ htmltools::img(src = paste0(url.root, "prj_sauri.png"),
 ```{r setup, include=FALSE}
 # knitr::opts_chunk$set(echo = FALSE, fig.width = 10, fig.height = 10)
 # # opts_chunk$set(fig.width=12, fig.height=8)
+aws.account <- "Thomas Huet"
+root.user <- "Thomas Huet: <thomashuet7@gmail.com>"
 aws.account.id <- "238927671855"
 aws.iam.user.name <- "sauri-pallars"
 aws.sauri.s3 <- "sauri-pallars"
@@ -31,27 +35,156 @@ aws.sauri.s3 <- "sauri-pallars"
 
 # Introduction
 
-Tutorial to manage data on Amazon Web Service (AWS).
+This web document is a tutorial draft to manage Sauri rock-art data on Amazon Web Service (AWS). Our purpose is to build an information system, online, interactive, to share and promote Sauri rock-art. To have more information on Sauri rock-art archaeology, see this [other web document](https://zoometh.github.io/Sauri/).
 
-## Login
+This document is stored on a public repository on GitHub: [https://github.com/zoometh/Sauri](https://github.com/zoometh/Sauri)
 
-Go on [AWS website](https://aws.amazon.com/) and choose 'Sign In to the Console'. Then, choose 'Sign in as IAM user'. The Sauri account ID is <b>``r aws.account.id``</b>, the IAM user name is <b>``r aws.iam.user.name``</b>. You will also have to write your password.
+# Amazon Web Service
 
-<div style="width:300px; height:300px; margin: auto">
-![](https://raw.githubusercontent.com/zoometh/Sauri/main/dev/aws/user_iam_auth.png)
-</div>
+The choice of Amazon Web Service (AWS) is an important part of the future information system. It offers a really good quality report compared to other similar services (Microsoft Azure, Google Cloud Computing, or institutional servers). For example, AWS allows to install R, RStudio Server and Shiny Server which will allow us to create interactive forms (maps, enriched photographs, scatter plots, etc.).
 
-You only have the possibility to access the S3 buckets^[these are folders]. Click on the S3 icon
+This AWS account is maintained by: `r aws.account`
 
-<div style="width:400px; height:400px; margin: auto">
-![](https://raw.githubusercontent.com/zoometh/Sauri/main/dev/aws/user_iam_s3.png)
-</div>
+## AWS Sauri Login
 
-Within the S3 buckets, choose <b>``r aws.sauri.s3``</b>
+Go on [AWS website](https://aws.amazon.com/) and choose 'Sign In to the Console'. Then, choose 'Sign in as IAM user'. The Sauri account ID is <b>``r aws.account.id``</b>, the IAM user name is <b>``r aws.iam.user.name``</b>. You will also have to write your password^[this password has been sent to you].
 
-<div style="width:700px; height:400px; margin: auto">
-![](https://raw.githubusercontent.com/zoometh/Sauri/main/dev/aws/user_iam_s3_sauri-pallars.png)
-</div>
+```{r, echo=FALSE, fig.cap="", out.width = '50%', fig.align='center'}
+knitr::include_graphics("https://raw.githubusercontent.com/zoometh/Sauri/main/dev/aws/user_iam_auth.png")
+```
 
 
-You can compute various action on the `r aws.sauri.s3` S3 bucket: upload new files, delete files, download, etc.
+You only have the possibility to access the  S3 buckets^[*Amazon Simple Storage Service* or *Amazon S3 bucket* are similar to folders]. Click on the S3 icon
+
+
+```{r, echo=FALSE, fig.cap="", out.width = '75%', fig.align='center'}
+knitr::include_graphics("https://raw.githubusercontent.com/zoometh/Sauri/main/dev/aws/user_iam_s3.png")
+```
+
+Within the S3 buckets, choose <b>``r aws.sauri.s3``</b> S3 bucket
+
+
+```{r, echo=FALSE, fig.cap="", out.width = '75%', fig.align='center'}
+knitr::include_graphics("https://raw.githubusercontent.com/zoometh/Sauri/main/dev/aws/user_iam_s3_sauri-pallars.png")
+```
+
+Once connected, you must have this credential in the upper right of your computer window: ![]( https://raw.githubusercontent.com/zoometh/Sauri/main/dev/aws/user_iam_account.png){height=35px}
+
+
+## AWS Sauri structure
+
+The S3 <b>``r aws.sauri.s3``</b> folder/file structure is
+
+```{r, echo=FALSE, fig.cap="", out.width = '75%', fig.align='center'}
+str.folders <- data.frame(s3.root = c("`sauri.pallars`", 
+                                      "`sauri.pallars`", 
+                                      "`sauri.pallars`",
+                                      "`sauri.pallars`",
+                                      "`sauri.pallars`",
+                                      "`sauri.pallars`"),
+                          s3.lev1 = c("[roques/](#roques)",
+                                      "[roques/](#roques)",
+                                      "[roques/](#roques)",
+                                      "[gis/](#gis)",
+                                      "[gis/](#gis)",
+                                      "[gis/](#gis)"),
+                          s3.lev2 = c("R1/",
+                                      "R2/",
+                                      "...",
+                                      "roques.shp",
+                                      "zonas.shp",
+                                      "..."),
+                          stringsAsFactors = F)
+kable(str.folders, "html", col.names = NULL) %>%
+  collapse_rows() %>%
+  kable_styling(full_width = FALSE, position = "center", font_size = 12)
+```
+
+
+### roques/{#roques} 
+
+The S3 'roques' stores all the documentation of specific rocks (photo, drawings, etc.) ordered by rock:
+
+```{r, echo=FALSE, fig.cap="", out.width = '75%', fig.align='center'}
+str.folders <- data.frame(s3.lev1 = c("roques/",
+                                      "roques/",
+                                      "roques/",
+                                      "roques/",
+                                      "roques/"),
+                          s3.lev2 = c("R1/",
+                                      "R1/",
+                                      "R1/",
+                                      "R1/",
+                                      "R2/"),
+                          s3.lev3 = c("_IGP7852.JPG",
+                                      "_IGP7854.JPG",
+                                      "_IGP7855.JPG",
+                                      "...",
+                                      "..."),
+                          stringsAsFactors = F)
+kable(str.folders, "html", col.names = NULL) %>%
+  collapse_rows() %>%
+  kable_styling(full_width = FALSE, position = "center", font_size = 12)
+```
+
+
+### sig/{#gis}
+
+The S3 'gis' stores all the spatial documentation (shapefiles, georeferenced maps, etc.)
+
+```{r, echo=FALSE, fig.cap="", out.width = '75%', fig.align='center'}
+str.folders <- data.frame(s3.lev1 = c("sig/",
+                                      "sig/",
+                                      "sig/",
+                                      "sig/",
+                                      "sig/"),
+                          s3.lev2 = c("roques.shp",
+                                      "zones.shp",
+                                      "seclas.shp",
+                                      "dem.tif",
+                                      "..."),
+                          stringsAsFactors = F)
+kable(str.folders, "html", col.names = NULL) %>%
+  collapse_rows() %>%
+  kable_styling(full_width = FALSE, position = "center", font_size = 12)
+```
+
+## AWS Sauri navigation
+
+On the top left of your computer window, you can see the arborescence of the <b>``r aws.sauri.s3``</b>. Go to the parent directory by clicking on the name (ex: roques/)
+
+```{r, echo=FALSE, fig.cap="", out.width = '75%', fig.align='center'}
+knitr::include_graphics("https://raw.githubusercontent.com/zoometh/Sauri/main/dev/aws/s3_bucket_navigation.png")
+```
+
+## AWS Sauri actions
+
+You can compute various action on the <b>``r aws.sauri.s3``</b> S3 bucket: 
+
+  + **upload** new files
+  
+  + **delete** files
+  
+  + **download** files
+  
+  + etc.
+  
+These actions, and further more, are authorized by the root user^[`r root.user`], contact him/her to extend your permissions
+
+# Task planning
+
+The achieved task, the current task and the future task are listed below
+
+- [x] AWS
+  - [x] AWS account
+  - [ ] AWS data storage
+- [ ] R, RStudio Server, Shiny Server
+  - [x] Install/Connect R
+  - [x] Install/Connect RStudio Server
+  - [ ] Install/Connect Shiny Server
+  
+## Issues
+  
+Actually, there's an error when we try to connect to Shiny Server
+
+
