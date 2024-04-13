@@ -1,0 +1,26 @@
+[data-config-title] {
+  height: 60px;
+}
+
+[data-config-subtitle] {
+  font-size: 22px;
+  font-family: 'Arial';
+  color: #0A0A0A;
+  font-weight: normal
+}
+
+[data-config-presenter] {
+  font-size: 18px; 
+  font-family: 'Arial'; 
+  color: #0A0A0A; 
+  float:left; 
+  font-weight: normal
+}
+
+body > slides > slide.title-slide.segue.nobackground.current > hgroup > p:nth-child(4) {
+  font-size: 18px; 
+  font-family: 'Arial'; 
+  color: #0A0A0A;
+  font-style: normal; 
+  float: left;
+}

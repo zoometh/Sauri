@@ -1,11 +1,10 @@
 ---
-title: "<span style='font-size: 40px;font-family:Luminari, fantasy'><b>Sauri Pallars</b></style> <span style='font-size: 30px'> <br>art rupestre medieval al Pirineu català</style>"
+title: "<span style='font-size: 40px;font-family:Luminari, fantasy'><b>Solà de Saurí</b></style> <span style='font-size: 30px'> <br>art rupestre medieval al Pirineu català</style>"
+pagetitle: "Solà de Saurí"
 author: "Universitat Autonoma de Barcelona (UAB) <br> Grup d'Arqueologia de l'Alta Muntanya (GAAM)"
 # date: "11/12/2020"
 bibliography: data/references.bib
 output:
-  # ioslides_presentation:
-  #   css: css.css
   html_document:
     toc: true
     toc_float:
@@ -47,16 +46,8 @@ library(rgdal)
 library(raster)
 
 chm <- "D:/Sites_10/Sauri/"
-
-roches <- st_read(dsn = paste0(chm, "GIS/roches_pts"), layer = "roches_all")
-# roches <- st_read(dsn = "D:/Sites_10/Sauri/GIS/roches_pts", layer = "roches_all")
-roches <- st_transform(roches, 4236) # rdev.reproj
-zones <- st_read(dsn = paste0(chm, "GIS"), layer = "zonas_3")
-zones <- st_transform(zones, 4236) # rdev.reproj
-# zones <- as(zones, "Spatial")
 chm_photos <- paste0(chm,"fotos")
 chm_pts <- paste0(chm,"GIS/roches_pts")
-
 #fich <- "fiche_19_R114.xlsx"
 # fich <- "fiche_2020_part1.xlsx" # campagne 2020 part 1
 # fich <- "fiche_2020_part2.xlsx" # campagne 2020 part 2
@@ -69,46 +60,72 @@ fields_fig <- c("num", "roche", "FG", "description", "doss_fotos")
 lzon_etud <- c(1, 2, 3, 4, 5)
 mycolo <- c("red", "orange", "yellow", "green", "blue") # zone colors
 
-# lit une 1e fois
-fiche_a <- openxlsx::read.xlsx(paste0(chm, fich),
-                               rowNames = F,
-                               skipEmptyRows = TRUE)
-# trouve l'indice 'row' après quoi commence l'inventaire
-start_row <- as.numeric(rownames(fiche_a[match('num', fiche_a$THM), ])) + 1
-# lit une 2e fois en commençant àaprès 'row'
-fiche <- openxlsx::read.xlsx(paste0(chm, fich),
-                             startRow = start_row,
-                             rowNames = F,
-                             skipEmptyRows=TRUE)
-# renomme les roches
-fiche$roche <- sub("^", "R", fiche$R)
-# regroupe les FG
-fiche$FG <- NA
-fiche$FG <- ifelse(!is.na(fiche$G), fiche$G, fiche$F)
-# doss photos
-fiche$doss_fotos <- NA # dossier photo
-fiche <- subset(fiche,select=c("num", "jour", "roche", "FG", "description", "doss_fotos"))
-doss_fotos <- as.data.frame(list.files(chm_photos), 
-                            stringsAsFactors=F) # list photos folders
-colnames(doss_fotos)[1] <- "id"
-doss_fotos$doss_fotos <- doss_fotos$id
-# merge liste roches & photos
-fiche_p <- merge(fiche,doss_fotos,by.x = "roche", by.y="id", all.x = T)
-fiche_p$doss_fotos.x <- NULL
-names(fiche_p)[names(fiche_p) == "doss_fotos.y"] <- "doss_fotos"
-
+# zones
+zones <- st_read(dsn = paste0(chm, "GIS"), layer = "zonas_3")
+zones <- st_transform(zones, 4236) # rdev.reproj
+# zones <- as(zones, "Spatial")
 zones.areas.m2 <- st_area(zones)
-zones.areas.ha <- as.numeric(zones.areas.m2/10000) # by zones
-zones.areas.ha <- round(sum(zones.areas.ha), 0) # total area
+zones.areas.ha.z <- as.numeric(zones.areas.m2/10000) # by zones
+zones.areas.ha.tot <- round(sum(zones.areas.ha.z), 0) # total area
+
+# roches
+# roches <- st_read(dsn = paste0(chm, "GIS/roches_pts"), layer = "roches_all")
+roches <- st_read(paste0(chm_pts,"/", shape.name.roches,".shp"), quiet = T)
+roches <- st_transform(roches, 4236) # rdev.reproj
+rocas_z <- st_read(paste0(chm_pts,"/", shape.name.roches,".shp"), quiet = T)
+n.roches <- nrow(roches)
+
+# gravures
+list_grav_trad <- read.xlsx(paste0(chm,"/", list_grav_xt, ".xlsx"))
+thm_xt <- subset(list_grav_trad, select=c("roche","thm_xt"))
+thm_xt <- merge(thm_xt, rocas_z, by = "roche", all.x = T) # merge list and shapes
+thm_xt <- subset(thm_xt, select=c("roche", "thm_xt", "geometry", "z", "zona"))
+thm_xt_z <- subset(thm_xt,select=c("roche", "thm_xt", "zona"))
+
+blank_theme <- theme(panel.border = element_blank(),
+                     panel.background = element_blank())
+
+re.read <- F
+if(re.read){
+  # lit une 1e fois
+  fiche_a <- openxlsx::read.xlsx(paste0(chm, fich),
+                                 rowNames = F,
+                                 skipEmptyRows = TRUE)
+  # trouve l'indice 'row' après quoi commence l'inventaire
+  start_row <- as.numeric(rownames(fiche_a[match('num', fiche_a$THM), ])) + 1
+  # lit une 2e fois en commençant àaprès 'row'
+  fiche <- openxlsx::read.xlsx(paste0(chm, fich),
+                               startRow = start_row,
+                               rowNames = F,
+                               skipEmptyRows=TRUE)
+  # renomme les roches
+  fiche$roche <- sub("^", "R", fiche$R)
+  # regroupe les FG
+  fiche$FG <- NA
+  fiche$FG <- ifelse(!is.na(fiche$G), fiche$G, fiche$F)
+  # doss photos
+  fiche$doss_fotos <- NA # dossier photo
+  fiche <- subset(fiche,select=c("num", "jour", "roche", "FG", "description", "doss_fotos"))
+  doss_fotos <- as.data.frame(list.files(chm_photos), 
+                              stringsAsFactors=F) # list photos folders
+  colnames(doss_fotos)[1] <- "id"
+  doss_fotos$doss_fotos <- doss_fotos$id
+  # merge liste roches & photos
+  fiche_p <- merge(fiche, doss_fotos, by.x = "roche", by.y="id", all.x = T)
+  fiche_p$doss_fotos.x <- NULL
+  names(fiche_p)[names(fiche_p) == "doss_fotos.y"] <- "doss_fotos"
+}
 ```
 &nbsp;
 
-Sauri (Pallars Sobirà, Lleida), al Pirineu català, és una important concentració de art rupestre medieval amb aproximadament 4,000 gravats [@Gassiot20]. Fins allà la recerca ha permès documentar 372 roques amb petroglifs que contenen de 3940 gravats. La majoria d'aquests gravats (~ 3,000) i roques gravades (~ 300) s'han localitzat, fotografiat i descrit breument 
+# Introducció
+
+El Sola de Sauri (Pallars Sobirà, Lleida), al Pirineu català, és una important concentració de art rupestre medieval (probablement Baixa Edat Mitjana, ss. XIV-XV AD) amb aproximadament 4,000 gravats. Es distribueixen en 100 hectàres i escenificades entre els 1000 i els 2000 metres sobre el nivell del mar [@Gassiot20]. Fins allà la recerca ha permès documentar `r n.roches` roques amb petroglifs que contenen de 3940 gravats. La investigació arqueològica sobre els gravats de Sauri es troba realment en les primeres etapes. Després de dues campanyes de camp de dues setmanes combinades, l'equip va treballar bàsicament per sistematitzar la gravació d'aquests gravats amb una majoria (~ 3,000) i roques gravades (~ 300) que s'han localitzat, fotografiat i descrit breument
 
 
 # El jaciment arqueològic {#ra}
 
-El jaciment es divideix en 5 zones i ocupa `r zones.areas.ha` hectàres
+El jaciment es divideix en `r nrow(zones)` zones i ocupa `r zones.areas.ha.tot` hectàres
 
 ```{r df.roche.z, warning=F}
 
@@ -122,16 +139,18 @@ names(zones.list) <- "zones"
 ```{r df.map.z, warning=F}
 # roches <- st_crs(roches, 2531)
 leaflet(height = "500px") %>%
+  addTiles(group = 'OSM') %>%
   addWMSTiles(
     # "http://geoserveis.icgc.cat/icc_ortohistorica/wms/service?",
     "http://www.ign.es/wms-inspire/pnoa-ma?",
     layers = "OI.OrthoimageCoverage",
     options = WMSTileOptions(format = "image/png", transparent = TRUE),
-    attribution = "") %>% 
+    attribution = "", group='Ortho') %>% 
   # addTiles() %>%  # Add default OpenStreetMap map tiles
   # all rocks
   addPolygons(data = zones,
-              popup= ~paste0("zone: ",zona),
+              popup= ~paste0("ZONE ",zona),
+              # popup= HTML(~paste0("[ZONE ", zona, "](#Zon.", zona, ")")),
               stroke = TRUE,
               color = "#000000",
               weight = 2,
@@ -140,8 +159,48 @@ leaflet(height = "500px") %>%
   addCircleMarkers(data =roches,
                    popup=~roche,
                    radius = 1,
-                   opacity = 0.5)
+                   opacity = 0.5) %>%
+  addLayersControl(
+    baseGroups = c('Ortho', 'OSM')
+  )
 ```
+## Les zones {#Zon}
+
+### Zone 1 {#Zon.1}
+
+Aquesta és la zona més alta, té `r round(zones.areas.ha.z[1], 2)` hectàres
+
+
+<div style="width:400px; height:400px; margin: auto">
+![](https://raw.githubusercontent.com/zoometh/Sauri/main/img/z1.png)
+<center>Vista de la zona 1</center>
+</div>
+
+### Zone 2 {#Zon.2}
+
+Té `r round(zones.areas.ha.z[2], 2)` hectàres
+
+<div style="width:400px; height:400px; margin: auto">
+![](https://raw.githubusercontent.com/zoometh/Sauri/main/img/z2.png)
+<center>Vista de la zona 2</center>
+</div>
+
+### Zone 3 {#Zon.3}
+
+Aquesta és la zona anomenada Santa Bàrbara, té `r round(zones.areas.ha.z[3], 2)` hectàres
+
+<div style="width:400px; height:400px; margin: auto">
+![](https://raw.githubusercontent.com/zoometh/Sauri/main/img/z3.png)
+<center>Vista de la zona 3</center>
+</div>
+
+### Zone 4 {#Zon.4}
+
+És una zona d'arbres que té `r round(zones.areas.ha.z[4], 2)` hectàres
+
+### Zone 5 {#Zon.5}
+
+Aquesta és la zona més baixa, té `r round(zones.areas.ha.z[5], 2)` hectàres
 
 
 ## Descripció de l'art rupestre {#A}
@@ -149,40 +208,148 @@ leaflet(height = "500px") %>%
 ```{r g.dist.desc, warning=F, echo=FALSE, message = F}
 # list_grav_xt <- "list_gravures_xt_2019_2020_1" # le fichier .xlsx
 # thm_xt <-read.xlsx(paste0(chm,'/', list_grav_xt, '.xlsx'))
-rocas_z <- st_read(paste0(chm_pts,"/", shape.name.roches,".shp"), quiet = T)
-list_grav_trad <- read.xlsx(paste0(chm,"/", list_grav_xt, ".xlsx"))
+
 n.roches <- length(unique(list_grav_trad$roche))
 n.gravures <- nrow(list_grav_trad)
-thm_xt <- subset(list_grav_trad, select=c("roche","thm_xt"))
-thm_xt <- merge(thm_xt, rocas_z, by = "roche", all.x = T) # merge list and shapes
-thm_xt <- subset(thm_xt, select=c("roche", "thm_xt", "geometry", "z", "zona"))
-thm_xt_z <- subset(thm_xt,select=c("roche", "thm_xt", "zona"))
 ```
 
 Es descriuen `r n.roches` roques gravades i `r n.gravures` gravats
 
+### Temes gravats {#Ath}
+
+Els gravats es poden classificar en 5 temes principals:
+
+```{r g.themes, warning=F, echo=FALSE, message = F}
+themes.df <- data.frame(Temes = c(rep("[personatge](#Ath_perso)", 11),
+                                  rep("[tecnic](#Ath_tek)", 7),
+                                  rep("[zoomorfe](#Ath_zoo)", 4),
+                                  rep("[literal](#Ath_liter)", 1),
+                                  rep("[geometric](#Ath_geom)", 15),
+                                  rep("irreconeixible", 1)),
+                        Subtemes = c(c("arc", "ballesta", "casc/barret/corona", "fletxa",
+                                       "cornamusa",
+                                       "cavall", "home", "cara", "llança", "espasa", "dona"),
+                                     c("arc", "ballesta", "edifici", "fletxa", "cornamusa",
+                                       "llança", "espasa"),
+                                     c("ocell", "equid", "cavall", "quadrupede"),
+                                     c("lletres/paraula"),
+                                     c("arboriforme", "creu", "estrella", "ratlles traçades", 
+                                       "creu cristiana", "linia", "pentacle", "quadrangular",
+                                       "rhomboideus tramat", "sagrat cor", "zig-zag",
+                                       "nus de Salomó",
+                                       "xarranca", "cercle", "rosa"),
+                                     c("irreconeixible")))
+
+kable(themes.df, "html", align = "c") %>%
+  kable_styling(full_width = F) %>%
+  collapse_rows(columns = 1)
+```
+
+```{r thm.count, warning=F, echo=FALSE}
+thm.nb.zoom <- sum(str_detect(list_grav_trad$thm_xt, "zoomorfe"), na.rm = TRUE)
+thm.nb.perso <- sum(str_detect(list_grav_trad$thm_xt, "personatge "), na.rm = TRUE)
+thm.nb.tek <- sum(str_detect(list_grav_trad$thm_xt, "tecnic"), na.rm = TRUE)
+thm.nb.geom <- sum(str_detect(list_grav_trad$thm_xt, "geometric"), na.rm = TRUE)
+thm.nb.liter <- sum(str_detect(list_grav_trad$thm_xt, "literal"), na.rm = TRUE)
+thm.nb.irrec <- sum(str_detect(list_grav_trad$thm_xt, "irreconeixible"), na.rm = TRUE)
+df.thm <- data.frame("personatge" = thm.nb.perso,
+                     "tecnic" = thm.nb.tek,
+                     "zoomorfe"  = thm.nb.zoom,
+                     "geometric"  = thm.nb.geom,
+                     "literal"  = thm.nb.liter,
+                     "irreconeixible"  = thm.nb.irrec,
+                     check.names=FALSE)
+df.thm.t <- as.data.frame(t(df.thm))
+colnames(df.thm.t)[1] <- "n"
+df.thm.t$temes <- rownames(df.thm.t)
+```
+
+A Sauri, com en la majoria dels llocs d’art rupestre, en moments en què el domini de l’escriptura només afecta a una petita part de la població, la gran majoria dels gravats representen figures geomètriques (n = `r thm.nb.geom`) o irreconeixible (n = `r thm.nb.irrec`). També es complicat comptar exactament quants figures hi ha perquè les seves figures s'associen i de vegades es fonen: personatge i genets, genets i cavalls,  espasa i espadatgers, etc.
+
+```{r thm.count.pie, warning=F, echo=FALSE,out.width="75%",fig.align='center'}
+ggplot(df.thm.t, aes(x=temes, y = n, fill=temes)) +
+  geom_bar(stat = "identity") +
+  geom_label_repel(aes(label = n, 
+                       y = n +.5)) +
+  coord_polar() +
+  blank_theme
+```
+
+
+A continuació en detallem alguns exemples
+
+```{r thm.subthm.count, warning=F, echo=FALSE,out.width="50%"}
+thm.nb.ocell <- sum(str_detect(list_grav_trad$thm_xt, "ocell"), na.rm = TRUE)
+thm.nb.pentacle <- sum(str_detect(list_grav_trad$thm_xt, "pentacle"), na.rm = TRUE)
+thm.nb.literal <- sum(str_detect(list_grav_trad$thm_xt, "literal"), na.rm = TRUE)
+thm.nb.personatge.cavall <- sum(str_detect(list_grav_trad$thm_xt, "personatge .* cavall"), na.rm = TRUE)
+thm.nb.llanca <- sum(str_detect(list_grav_trad$thm_xt, "lança"), na.rm = TRUE)
+thm.nb.espasa <- sum(str_detect(list_grav_trad$thm_xt, "espasa"), na.rm = TRUE)
+thm.nb.ballesta <- sum(str_detect(list_grav_trad$thm_xt, "ballesta"), na.rm = TRUE)
+thm.nb.fletxa <- sum(str_detect(list_grav_trad$thm_xt, "fletxa"), na.rm = TRUE)
+thm.nb.arc <- sum(str_detect(list_grav_trad$thm_xt, "arc"), na.rm = TRUE)
+```
+
+#### Personatje {#Ath_perso}
+  
+  
+<div style="width:300px; height:300px; margin: auto">
+![](https://raw.githubusercontent.com/zoometh/Sauri/main/img/thm_personatge.png)
+<center>roca 55</center>
+</div>
+
+
+La majoria dels personatges són masculins, tal com indica la presència reiterada de barba, com aquest genet. Les dones són molt menys nombroses. Finalment, l’anàlisi de correspondència mostra que els personatges masculí i femení poques vegades es troben a les mateixes roques.
+
+#### Tecnic {#Ath_tek}
+
+
+<div style="width:300px; height:300px; margin: auto">
+![](https://raw.githubusercontent.com/zoometh/Sauri/main/img/thm_tecnic.png)
+<center>roca 201</center>
+</div>
+
+Llança (n = `r thm.nb.llanca`), espasa (n = `r thm.nb.espasa`), fletxa (n = `r thm.nb.fletxa`) i ballesta (n = `r thm.nb.ballesta`) són les armes més representades. Per contra, hi ha pocs arcs (n = `r thm.nb.arc`)
+
+
+
+#### Zoomorfe {#Ath_zoo}
+
+
+<div style="width:300px; height:300px; margin: auto">
+![](https://raw.githubusercontent.com/zoometh/Sauri/main/img/thm_zoomorfe.png)
+<center>roca 114</center>
+</div>
+
+Una primera anàlisi de correspondència mostra que les ocell (n = `r thm.nb.ocell`) rarament s’associen a altres temes gravats.
+
+
+#### Geometric {#Ath_geom}
+
+
+<div style="width:300px; height:300px; margin: auto">
+![](https://raw.githubusercontent.com/zoometh/Sauri/main/img/thm_geometric.png)
+<center>roca 3bis</center>
+</div>
+
+Els pentacles (n = `r thm.nb.pentacle`) són estrelles de 5 puntes executades en una sola línia trencada. Als llocs d’art rupestre de França, apareixen en perifèric d'altres temes gravats: Baldouin (Saint-Remy-de-Provence, Bouches-du-Rhône) i, Eissartènes B (Le Val, Var) [@Hameau01]. Probablement es tracta d’un senyal que són posteriors als altres signes gravats. A Sauri coneixem almenys un cas en què un pentacle es sobreposa a un personatge (roque 3bis), això va en la mateixa direcció: el d'una cronologia més recent de pentacles 
+
+#### Literal {#Ath_liter}
+
+
+<div style="width:300px; height:300px; margin: auto">
+![](https://raw.githubusercontent.com/zoometh/Sauri/main/img/thm_literal.png)
+<center>roca 61</center>
+</div>
+
+A Sauri, hi ha `r thm.nb.literal`. L’exemple més interessant és, sens dubte, el de la roca 61 amb una grafia es en lletra gotica cursiva. El seu autor podria ser Pere Arnaldo, un monjo-procurador (notari) i membre del monestir de Gerri de la Sal conegut pels textos del mitjans XIV (1335-1369)
+
+
 ### Nombre de gravats per roca {#Anb}
 
 ```{r g.dist.nbgrav.calc, warning=F, echo=FALSE, message = F}
-# list_grav_xt <- "list_gravures_xt_2019_2020_1" # le fichier .xlsx
-# thm_xt <-read.xlsx(paste0(chm,'/', list_grav_xt, '.xlsx'))
-# rocas_z <- st_read(paste0(chm_pts,"/", shape.name.roches,".shp"), quiet = T)
-# list_grav_trad <- read.xlsx(paste0(chm,"/", list_grav_xt, ".xlsx"))
-# thm_xt <- subset(list_grav_trad, select=c("roche","thm_xt"))
-# thm_xt <- merge(thm_xt, rocas_z, by="roche", all.x=T) # merge list and shapes
-# thm_xt <- subset(thm_xt, select=c("roche","thm_xt","geometry","z","zona"))
-# thm_xt_z <- subset(thm_xt,select=c("roche","thm_xt","zona"))
-# # export avec num zona
-# openxlsx::write.xlsx(thm_xt_z,
-#                      paste0("D:/Sites_10/Sauri/", list_grav_xt,"_z.xlsx"),
-#                      row.names = F,
-#                      col.names=T,
-#                      append = TRUE)
-# nb gravures roches
-# chm_shp <- "D:/Sites_10/Sauri/GIS/roches_pts"
-# roches_sp <- st_read(roches, shape.name.roches)
 nb.grav.roche <- as.data.frame(roches)
-nb.grav.roche <- subset(nb.grav.roche, select=c("roche","num"))
+nb.grav.roche <- subset(nb.grav.roche, select = c("roche", "Num_gav"))
 nb.grav.roche <- thm_xt %>% 
   count(roche)
 # stats
@@ -235,7 +402,7 @@ g.dist.nbgrav
 
 #### Altituds generals
 
-```{r dist_alti, warning=F, echo=FALSE}
+```{r dist_alti, warning=F, echo=FALSE, out.width="600px", out.height="400px"}
 z.min <- round(min(thm_xt$z, na.rm = T), 0)
 z.max <- round(max(thm_xt$z, na.rm = T), 0)
 # altitudes histogrammes
@@ -288,23 +455,13 @@ g.hist.thm <- ggplot(thm_xt_sp) +
 
 Les roques gravades es distribueixen entre els `r z.min` msnm i els `r z.max` msnm
 
-```{r dist_alti.graph, warning=F, echo=FALSE, out.height="50%"}
+```{r dist_alti.graph, warning=F, echo=FALSE, out.width="600px", out.height="400px", fig.align='center'}
 g.hist.thm
 ```
 
 ## Altituds de temes gravats
 
-```{r dist_alti_thm, warning=F, echo=FALSE, results='asis', out.width="100%"}
-# boxplot des altitudes par themes
-# rocas_z <- st_read(paste0(chm_pts,"/", shape.name.roches,".shp"))
-# list_grav_trad <- read.xlsx(paste0(chm,"/", list_grav_xt, ".xlsx"))
-# thm_xt <- subset(list_grav_trad, select=c("roche","thm_xt"))
-# thm_xt <- merge(thm_xt, rocas_z, by="roche", all.x=T) # merge list and shapes
-# thm_xt <- subset(thm_xt, select=c("roche","thm_xt","geometry","z","zona"))
-
-# create graph of boxplots for themes altitudes (z)
-# order by thm z mean
-# df <- df.patts
+```{r dist_alti_thm, warning=F, echo=FALSE, results='asis'}
 df <- thm_xt
 df <- df[!is.na(df$thm_xt), ]
 # zmean
@@ -370,18 +527,114 @@ ggplot(data = df_sp, aes(y = z, x = thm_xt)) +
 
 ```
 
+Els zig-zags i els arboriformes s’agrupen per sota dels 1450 msnm
+
+### Tècniques de gravat
+
+```{r tek.count, warning=F, echo=FALSE}
+tec.nb.t <- sum(str_detect(list_grav_trad$tec, "t"), na.rm = TRUE)
+tec.nb.g <- sum(str_detect(list_grav_trad$tec, "g"), na.rm = TRUE)
+tec.nb.s <- sum(str_detect(list_grav_trad$tec, "s"), na.rm = TRUE)
+tec.nb.n <- sum(str_detect(list_grav_trad$tec, "n"), na.rm = TRUE)
+tec.nb.p <- sum(str_detect(list_grav_trad$tec, "p"), na.rm = TRUE)
+tec.nb.patinaclara <- sum(str_detect(list_grav_trad$tec, "%"), na.rm = TRUE)
+df.tec <- data.frame("incisio fina" = tec.nb.t,
+                     "incisio gruixuda" = tec.nb.g,
+                     "incisió raspada"  = tec.nb.s,
+                     "incisió 'V' profunda"  = tec.nb.n,
+                     "incisió repicat"  = tec.nb.p,
+                     check.names=FALSE)
+df.tec.t <- as.data.frame(t(df.tec))
+colnames(df.tec.t)[1] <- "n"
+df.tec.t$tecnica <- rownames(df.tec.t)
+```
+
+La gran majoria dels gravats estan fets amb incisio fina (n = `r tec.nb.t`)
+
+```{r tek.count.pie, warning=F, echo=FALSE, out.width="75%", fig.align='center'}
+ggplot(df.tec.t, aes (x=tecnica, y = n, fill = tecnica)) + 
+  geom_bar(stat = "identity") +
+  geom_label_repel(aes(label = n, 
+                       y = n +.5)) +
+  coord_polar() + 
+  blank_theme
+```
+
+Alguns d’aquests gravats tenen una pàtina clara (n = `r tec.nb.patinaclara`). Aquests gravats tenen estils o temes que sovint són diferents de la resta. Sens dubte tenen una cronologia més recent
+
+## Organització espacial {#spat}
+
+Els pentacles apareixen en roques diferents dels zig-zags i arboriformes. Per P. Campmajo [@Campmajo12], els zig-zags són tardans i s’associen a portadors de ballesta com a Peyra Escrita r. A (Pirineus Orientals, França)
+
+Les ballestes es troben en roques diferents de les altres armes (espases, llances, arcs)
+
+# Comparacions
+
+Diversos llocs ofereixen comparacions satisfactòries amb els gravats de Sauri, per exemple el Castell d'Oroners (Àger, Lleida) [@Bertran84] i el Castellfollit de Riubregós (Anoia) [@VVAA81]
+
+
+# Conclusions preliminars
+
+Si és probable que els gravats del Solà de Saurí datin del Baixa Edat Mitjana, que resultin d’un període de realització força curt (homogeneïtat temàtica i tècnica, distribució espacial), de moment tenim més preguntes que respostes. Documenten algun episodi de conflicte viscut pels gravadors o només conegut per ells? Són obra de joves pastors que imaginen la vida del curs? 
+
+
 # Difusió
 
-## Tribuna d'Arqueologia
+## Difusió scientifica
 
-El 21 d'abril 2021, a la "Tribuna d'Arqueologia" de Barcelona, Ermengol Gassiot Balbè, Oscar Augé i Thomas Huet van presentar un primer estat de recerca sobre els gravats de Sauri
+### Tribuna d'Arqueologia
+
+A la "Tribuna d'Arqueologia" de Barcelona, Ermengol Gassiot Balbè, Oscar Augé i Thomas Huet van presentar un primer estat de recerca sobre els gravats de Sauri
 
 <div style="width:600px; height:400px; margin: auto">
 [![](https://raw.githubusercontent.com/zoometh/Sauri/main/img/tribuna21.png)](https://www.youtube.com/watch?v=4b7gLw4NV_E)
 <center>Tribuna d'Arqueologia video (21/04/21, Barcelona)</center>
 </div>
 
+## Distribució pública general
+
+Gira de gravats de Sauri per a Tour Group amb el *Centre Excursionista de Catalunya* (CEC), guiat per l'equip de treball UAB-GAAM
+
+<div style="width:600px; height:400px; margin: auto">
+![](https://raw.githubusercontent.com/zoometh/Sauri/main/img/trobada_excursion.png)
+<center>De tornada a l’aparcament de Llessui (04/08/21, Saurí)</center>
+</div>
+
+L'equip de treball UAB-GAAM va organitzar una presentació dels principals gravats a Sauri després de la segona campanya de camp
+
+
+<div style="width:600px; height:400px; margin: auto">
+![](https://raw.githubusercontent.com/zoometh/Sauri/main/img/trobada_veins_sauri.png)
+<center>Trobada amb els veïns de la Vall d'Àssua (24/10/20, Saurí)</center>
+</div>
+
+## Mitjans de comunicació
+
+Els gravats de Sauri han tingut una important cobertura mediàtica
+
+### Televisió
+
+<div style="width:600px; height:400px; margin: auto">
+<center><b>PirineusTV</b></center>
+[![](https://raw.githubusercontent.com/zoometh/Sauri/main/img/pirineustv.png)](https://www.pirineustv.cat/2021/05/05/declarats-bcin-els-gravats-medievals-de-la-vall-dassua/)
+</div>
+
+<div style="width:600px; height:400px; margin: auto">
+<center><b>TV3</b></center>
+[![](https://raw.githubusercontent.com/zoometh/Sauri/main/img/tv3.png)](https://www.ccma.cat/tv3/alacarta/telenoticies/troben-prop-de-4-000-gravats-de-ledat-mitjana-a-les-roques-de-la-vall-dassua/video/6099092/)
+</div>
+
+### Web
+
+<div style="width:600px; height:400px; margin: auto">
+<center><b>www.vilaweb.cat</b></center>
+[![](https://raw.githubusercontent.com/zoometh/Sauri/main/img/vilaweb.png)](https://www.vilaweb.cat/noticies/cataloguen-prop-de-4-000-gravats-medievals-a-un-indret-rocos-de-la-vall-dassua/)
+</div>
+
+
 # References
+
+Tots els dissenys són de Sabina Lapedra
 
 
 

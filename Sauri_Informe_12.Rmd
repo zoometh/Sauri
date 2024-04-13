@@ -548,6 +548,8 @@ saveWorkbook(wb, list_xt_url, overwrite = TRUE)
 
 ## Nombre de gravures par roches
 ```{r dist_gene, warning=F, echo=FALSE, results='asis'}
+thm_xt <-read.xlsx(paste0(chm,'/list_gravures_xt_2019_2020_1.xlsx'))
+
 thm_xt <- subset(list_grav_trad,select=c("roche","thm_xt"))
 thm_xt <- merge(thm_xt,rocas_z,by="roche",all.x=T) # merge list and shapes
 thm_xt <- subset(thm_xt,select=c("roche","thm_xt","geometry","z","zona"))

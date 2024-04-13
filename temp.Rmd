@@ -1,0 +1,45 @@
+---
+title: "Untitled"
+author: "Thomas Huet"
+date: "7/1/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(vembedr)
+url.root <- "https://raw.githubusercontent.com/zoometh/Sauri/img/tribuna21.png"
+```
+
+## R Markdown
+  
+<iframe
+    width="640"
+    height="480"
+    src="https://www.youtube.com/embed/UmX4kyB2wfg"
+    frameborder="0"
+    allow="autoplay; encrypted-media"
+    allowfullscreen
+>
+</iframe>
+
+```{r cars}
+embed_url("https://www.youtube.com/watch?v=uV4UpCq2azs") %>%
+  use_start_time("1m32") %>%
+  use_align("center")
+```
+
+blabla
+
+<div style="width:500px; height:300px; margin: auto">
+[![](https://raw.githubusercontent.com/zoometh/Sauri/main/img/tribuna21.png)](https://www.youtube.com/watch?v=4b7gLw4NV_E)
+<center>Tribuna d'Arqueologia video (21/04/21, Barcelona)</center>
+</div>
+  
+  
+bloblo
+
+<div align="center">
+<iframe width="560" height="315" src="http://www.youtube.com/embed/9bZkp7q19f0?rel=0" frameborder="0" allowfullscreen></iframe>
+   </iframe>
+</div>
